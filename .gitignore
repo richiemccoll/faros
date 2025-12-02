@@ -57,3 +57,4 @@ node_modules
 bin/run
 dist
 internal-docs
+tmp
