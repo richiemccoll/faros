@@ -4,6 +4,7 @@
 
 ## Features
 
+- **Comprehensive Core Web Vitals** - Track LCP, CLS, FCP, FID, INP, and TBT
 - **Concurrent Performance Testing** - Test multiple URLs simultaneously with configurable concurrency
 - **Intelligent Retry Logic** - Automatic retry with exponential backoff for failed tests
 - **Multiple Report Formats** - CLI, JSON, HTML, and JUnit output formats
@@ -84,15 +85,41 @@ faros run --quiet
 ℹ 🏁 Performance tests completed: 2 passed, 0 failed
 
 🎯 Performance Test Summary
-   Total tests run: 2
+   Total tests run: 4
 
    📊 homepage:
-     🟢 desktop: 95 (Performance Score)
-     🟡 mobile: 78 (Performance Score)
+     Profile: desktop
+       🟢 Performance: 95
+       🟢 LCP: 1825ms
+       🟢 CLS: 0.045
+       � FCP: 1654ms
+       🟢 FID: 12ms
+       🟢 TBT: 89ms
+
+     Profile: mobile
+       🟡 Performance: 78
+       🟡 LCP: 3245ms
+       🟢 CLS: 0.087
+       🟡 FCP: 2890ms
+       🟡 FID: 156ms
+       🟡 TBT: 234ms
 
    📊 checkout:
-     🟢 desktop: 92 (Performance Score)
-     🔴 mobile: 45 (Performance Score)
+     Profile: desktop
+       🟢 Performance: 92
+       🟢 LCP: 2145ms
+       🟢 CLS: 0.023
+       🟢 FCP: 1923ms
+       🟢 FID: 8ms
+       � TBT: 45ms
+
+     Profile: mobile
+       🔴 Performance: 45
+       🔴 LCP: 4567ms
+       🟡 CLS: 0.189
+       🔴 FCP: 4123ms
+       🔴 FID: 389ms
+       🔴 TBT: 567ms
 ```
 
 ### `print-config` - Configuration Validation

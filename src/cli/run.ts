@@ -197,6 +197,60 @@ function convertRunnerResults(results: LighthouseResult[]): PerformanceResult[] 
   }))
 }
 
+function formatMetricWithThresholds(
+  value: number | undefined,
+  metricName: string,
+): { formatted: string; icon: string } {
+  if (value === undefined) {
+    return { formatted: 'N/A', icon: '⚪' }
+  }
+
+  let thresholds: { good: number; needsImprovement: number }
+  let unit = ''
+  let displayValue = value
+
+  switch (metricName) {
+    case 'lcp': // Largest Contentful Paint (ms)
+      thresholds = { good: 2500, needsImprovement: 4000 }
+      unit = 'ms'
+      break
+    case 'fcp': // First Contentful Paint (ms)
+      thresholds = { good: 1800, needsImprovement: 3000 }
+      unit = 'ms'
+      break
+    case 'cls': // Cumulative Layout Shift (score)
+      thresholds = { good: 0.1, needsImprovement: 0.25 }
+      displayValue = Math.round(value * 1000) / 1000 // Round to 3 decimal places
+      break
+    case 'fid': // First Input Delay (ms)
+      thresholds = { good: 100, needsImprovement: 300 }
+      unit = 'ms'
+      break
+    case 'inp': // Interaction to Next Paint (ms)
+      thresholds = { good: 200, needsImprovement: 500 }
+      unit = 'ms'
+      break
+    case 'tbt': // Total Blocking Time (ms)
+      thresholds = { good: 200, needsImprovement: 600 }
+      unit = 'ms'
+      break
+    case 'performanceScore': {
+      // Performance Score (0-100)
+      thresholds = { good: 90, needsImprovement: 50 }
+      // Performance score logic is reversed - higher is better
+      const perfIcon = value >= thresholds.good ? '🟢' : value >= thresholds.needsImprovement ? '🟡' : '🔴'
+      return { formatted: `${displayValue}`, icon: perfIcon }
+    }
+    default:
+      return { formatted: `${value}`, icon: '⚪' }
+  }
+
+  const icon = value <= thresholds.good ? '🟢' : value <= thresholds.needsImprovement ? '🟡' : '🔴'
+  const formatted = `${displayValue}${unit}`
+
+  return { formatted, icon }
+}
+
 function displaySummary(results: PerformanceResult[]): void {
   // eslint-disable-next-line no-console
   console.log(`\n🎯 Performance Test Summary`)
@@ -225,11 +279,45 @@ function displaySummary(results: PerformanceResult[]): void {
     console.log(`\n   📊 ${targetName}:`)
 
     for (const result of targetResults) {
-      const score = result.metrics.performanceScore
-      if (score) {
-        const scoreIcon = score >= 90 ? '🟢' : score >= 50 ? '🟡' : '🔴'
+      const { metrics } = result
+
+      // eslint-disable-next-line no-console
+      console.log(`     Profile: ${result.profileName}`)
+
+      // Performance Score
+      const perfScore = formatMetricWithThresholds(metrics.performanceScore, 'performanceScore')
+      // eslint-disable-next-line no-console
+      console.log(`       ${perfScore.icon} Performance: ${perfScore.formatted}`)
+
+      // Core Web Vitals
+      const lcp = formatMetricWithThresholds(metrics.lcp, 'lcp')
+      const cls = formatMetricWithThresholds(metrics.cls, 'cls')
+      const fcp = formatMetricWithThresholds(metrics.fcp, 'fcp')
+
+      // eslint-disable-next-line no-console
+      console.log(`       ${lcp.icon} LCP: ${lcp.formatted}`)
+      // eslint-disable-next-line no-console
+      console.log(`       ${cls.icon} CLS: ${cls.formatted}`)
+      // eslint-disable-next-line no-console
+      console.log(`       ${fcp.icon} FCP: ${fcp.formatted}`)
+
+      // Other metrics (FID, INP, TBT) - only show if available
+      if (metrics.fid !== undefined) {
+        const fid = formatMetricWithThresholds(metrics.fid, 'fid')
         // eslint-disable-next-line no-console
-        console.log(`     ${scoreIcon} ${result.profileName}: ${score ?? 'N/A'} (Performance Score)`)
+        console.log(`       ${fid.icon} FID: ${fid.formatted}`)
+      }
+
+      if (metrics.inp !== undefined) {
+        const inp = formatMetricWithThresholds(metrics.inp, 'inp')
+        // eslint-disable-next-line no-console
+        console.log(`       ${inp.icon} INP: ${inp.formatted}`)
+      }
+
+      if (metrics.tbt !== undefined) {
+        const tbt = formatMetricWithThresholds(metrics.tbt, 'tbt')
+        // eslint-disable-next-line no-console
+        console.log(`       ${tbt.icon} TBT: ${tbt.formatted}`)
       }
     }
   }

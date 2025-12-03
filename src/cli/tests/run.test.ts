@@ -507,8 +507,12 @@ describe('run command', () => {
 
       expect(logs).toContain('📊 Homepage:')
       expect(logs).toContain('📊 About Page:')
-      expect(logs).toContain('🟢 desktop: 95') // Good score (>=90)
-      expect(logs).toContain('🔴 desktop: 45') // Bad score (<50)
+      expect(logs).toContain('Profile: desktop')
+      expect(logs).toContain('🟢 Performance: 95') // Good score (>=90)
+      expect(logs).toContain('🔴 Performance: 45') // Bad score (<50)
+      expect(logs).toContain('🟢 LCP: 1200ms') // From mock data
+      expect(logs).toContain('🟢 CLS: 0.05') // From mock data
+      expect(logs).toContain('🟢 FCP: 800ms') // From mock data
     } finally {
       capture.restore()
     }
