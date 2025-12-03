@@ -61,7 +61,7 @@ export class CLIReporter {
 
   private formatTable(taskResults: TaskResult[]): string {
     // Table headers
-    const headers = ['URL', 'Status', ...this.options.showMetrics.map(this.formatMetricHeader)]
+    const headers = ['id', 'URL', 'Status', ...this.options.showMetrics.map(this.formatMetricHeader)]
 
     const colWidths = this.calculateColumnWidths(headers, taskResults)
 
@@ -79,7 +79,8 @@ export class CLIReporter {
   }
 
   private formatDataRow(result: TaskResult): string[] {
-    const target = this.truncateUrl(result.task.target.url)
+    const id = result.task.target.id
+    const url = this.truncateUrl(result.task.target.url)
     const status = this.formatStatus(result)
 
     const metrics = this.options.showMetrics.map((metric) => {
@@ -92,7 +93,7 @@ export class CLIReporter {
       )
     })
 
-    return [target, status, ...metrics]
+    return [id, url, status, ...metrics]
   }
 
   private formatStatus(result: TaskResult): string {

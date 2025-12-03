@@ -24,7 +24,7 @@ npm install -g faros
 {
   "targets": [
     {
-      "id": "homepage",
+      "id": "home",
       "url": "https://example.com",
       "name": "Homepage",
       "tags": ["critical"]
@@ -77,16 +77,16 @@ faros run --quiet
 ℹ Loaded config with 1 targets and 0 custom profiles
 ℹ Running 1 targets with concurrency 1...
 ℹ Starting performance test run with 1 task(s)
-ℹ 🚀 Starting 1 performance test(s)                                                                                                     
+ℹ 🚀 Starting 1 performance test(s)
 ℹ ⏳ Running: Homepage (mobileSlow3G)
 ℹ ✅ Completed: Homepage 🟢 Score: 100
 ℹ Performance test run completed. 1 result(s)
 ℹ 🏁 Performance tests completed: 1 passed, 0 failed
 ✓ PASSED Performance Test Results (8.1s)
 
-URL                 | Status | LCP    | CLS    | FID    | TBT    | FCP    | Score
---------------------+--------+--------+--------+--------+--------+--------+-------
-https://example.com | PASS   | 901ms  | 0.000  | 45ms   | 0ms    | 901ms  | 100
+id     | URL                 | Status | LCP    | CLS    | FID    | TBT    | FCP    | Score
+-------+---------------------+--------+--------+--------+--------+--------+--------+-------
+home   | https://example.com | PASS   | 815ms  | 0.000  | 42ms   | 0ms    | 815ms  | 100
 
 Tasks: 1 total, 1 completed, 0 failed
 ```
