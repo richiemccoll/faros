@@ -89,6 +89,7 @@ faros run --quiet
 
    📊 homepage:
      Profile: desktop
+     URL: https://example.com/
        🟢 Performance: 95
        🟢 LCP: 1825ms
        🟢 CLS: 0.045
@@ -97,6 +98,7 @@ faros run --quiet
        🟢 TBT: 89ms
 
      Profile: mobile
+     URL: https://example.com/
        🟡 Performance: 78
        🟡 LCP: 3245ms
        🟢 CLS: 0.087
@@ -106,6 +108,7 @@ faros run --quiet
 
    📊 checkout:
      Profile: desktop
+     URL: https://example.com/
        🟢 Performance: 92
        🟢 LCP: 2145ms
        🟢 CLS: 0.023
@@ -114,6 +117,7 @@ faros run --quiet
        � TBT: 45ms
 
      Profile: mobile
+     URL: https://example.com/
        🔴 Performance: 45
        🔴 LCP: 4567ms
        🟡 CLS: 0.189
