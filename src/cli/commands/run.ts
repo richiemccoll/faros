@@ -1,8 +1,8 @@
 import type { CommandModule } from 'yargs'
-import { loadConfig } from '../core/config'
-import { createRunner } from '../core/runner'
-import { logger } from '../logger'
-import type { Target, NormalizedMetrics, PerfConfig, LighthouseResult, Task } from '../core/types'
+import { loadConfig } from '../../core/config'
+import { createRunner } from '../../core/runner'
+import { logger } from '../../logger'
+import type { Target, NormalizedMetrics, PerfConfig, LighthouseResult, Task } from '../../core/types'
 
 interface GlobalOptions {
   config?: string

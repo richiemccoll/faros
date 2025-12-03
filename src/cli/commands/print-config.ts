@@ -1,9 +1,9 @@
 /* eslint-disable no-console */
 
-import { ConfigLoadError, ConfigValidationError } from '../core/config/errors'
-import { loadConfig, ProfileRef } from '../core'
-import { ProfileRegistry } from '../lighthouse'
-import type { BaseArgs, PrintConfigArgs } from './types'
+import { ConfigLoadError, ConfigValidationError } from '../../core/config/errors'
+import { loadConfig, ProfileRef } from '../../core'
+import { ProfileRegistry } from '../../lighthouse'
+import type { BaseArgs, PrintConfigArgs } from '../types'
 import type { CommandModule } from 'yargs'
 
 export const printConfigCommand: CommandModule<BaseArgs, PrintConfigArgs> = {

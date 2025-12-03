@@ -1,7 +1,6 @@
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
-import { printConfigCommand } from './print-config'
-import { runCommand } from './run'
+import { printConfigCommand, runCommand } from './commands'
 
 export function createCli() {
   return yargs(hideBin(process.argv))
