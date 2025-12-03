@@ -120,6 +120,7 @@ export class CLIReporter {
       case 'lcp':
       case 'fcp':
       case 'fid':
+      case 'inp':
       case 'tbt':
         return `${Math.round(value)}ms`
       case 'cls':
@@ -143,6 +144,8 @@ export class CLIReporter {
         return 'FID'
       case 'tbt':
         return 'TBT'
+      case 'inp':
+        return 'INP'
       case 'performanceScore':
         return 'Score'
       default:

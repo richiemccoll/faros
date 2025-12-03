@@ -100,7 +100,7 @@ async function runPerformanceTests(args: RunCommandArgs): Promise<void> {
     if (!args.quiet) {
       const cliReporter = new CLIReporter({
         showColors: true,
-        showMetrics: ['lcp', 'cls', 'fid', 'tbt', 'fcp', 'performanceScore'],
+        showMetrics: ['lcp', 'cls', 'fid', 'tbt', 'fcp', 'inp', 'performanceScore'],
       })
       cliReporter.print(runSummary)
     } else {
