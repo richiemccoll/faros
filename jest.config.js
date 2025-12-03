@@ -17,13 +17,12 @@ export default {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
-  // TODO - enforce thresholds once coverage is stable
-  // coverageThreshold: {
-  //   global: {
-  //     branches: 80,
-  //     functions: 80,
-  //     lines: 80,
-  //     statements: 80,
-  //   },
-  // },
+  coverageThreshold: {
+    global: {
+      branches: 74,
+      functions: 80,
+      lines: 80,
+      statements: 80,
+    },
+  },
 }

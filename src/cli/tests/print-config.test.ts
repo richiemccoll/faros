@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals'
 import { writeFile, mkdir, rm } from 'fs/promises'
 import { join } from 'path'
@@ -17,19 +18,15 @@ jest.mock('lighthouse', () => ({
 
 // Capture console output for testing
 const captureOutput = () => {
-  // eslint-disable-next-line no-console
   const originalLog = console.log
-  // eslint-disable-next-line no-console
   const originalError = console.error
   const logs: string[] = []
   const errors: string[] = []
 
-  // eslint-disable-next-line no-console
   console.log = (...args: unknown[]) => {
     logs.push(args.map(String).join(' '))
   }
 
-  // eslint-disable-next-line no-console
   console.error = (...args: unknown[]) => {
     errors.push(args.map(String).join(' '))
   }
@@ -38,9 +35,7 @@ const captureOutput = () => {
     getLogs: () => logs.join('\n'),
     getErrors: () => errors.join('\n'),
     restore: () => {
-      // eslint-disable-next-line no-console
       console.log = originalLog
-      // eslint-disable-next-line no-console
       console.error = originalError
     },
   }

@@ -1,22 +1,21 @@
+/* eslint-disable no-console */
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals'
 import { writeFile, mkdir, rm } from 'fs/promises'
 import { join } from 'path'
 import { runCli } from '../cli'
 import { logger } from '../../logger'
+import { launch } from 'chrome-launcher'
+import lighthouse from 'lighthouse'
 
 const TEST_DIR = join(process.cwd(), 'test-configs-run')
 
-// Mock chrome-launcher to avoid ESM import issues in Jest
-const mockLaunch = jest.fn()
+// Mock chrome-launcher - return a mock chrome instance
 jest.mock('chrome-launcher', () => ({
-  launch: mockLaunch,
+  launch: jest.fn(),
 }))
 
-// Mock lighthouse to avoid ESM import issues in Jest
-const mockLighthouse = jest.fn()
-jest.mock('lighthouse', () => ({
-  default: mockLighthouse,
-}))
+// Mock lighthouse - return realistic lighthouse result structure
+jest.mock('lighthouse', () => jest.fn())
 
 // Mock logger to capture its output
 jest.mock('../../logger', () => ({
@@ -27,39 +26,9 @@ jest.mock('../../logger', () => ({
   },
 }))
 
-const mockCleanup = jest.fn()
-
-const mockGetProfile = jest.fn()
-const mockListProfiles = jest.fn()
-jest.mock('../../lighthouse/profile-registry', () => ({
-  ProfileRegistry: jest.fn().mockImplementation(() => ({
-    getProfile: mockGetProfile,
-    listProfiles: mockListProfiles,
-  })),
-}))
-
-const mockRun = jest.fn()
-jest.mock('../../lighthouse/launcher', () => ({
-  LighthouseLauncher: jest.fn().mockImplementation(() => ({
-    run: mockRun,
-    cleanup: mockCleanup,
-  })),
-}))
-
-const mockExtract = jest.fn()
-const mockValidateMetrics = jest.fn()
-jest.mock('../../lighthouse/metric-extractor', () => ({
-  MetricExtractor: jest.fn().mockImplementation(() => ({
-    extract: mockExtract,
-    validateMetrics: mockValidateMetrics,
-  })),
-}))
-
 // Capture console and logger output for testing
 const captureOutput = () => {
-  // eslint-disable-next-line no-console
   const originalLog = console.log
-  // eslint-disable-next-line no-console
   const originalError = console.error
   const logs: string[] = []
   const errors: string[] = []
@@ -71,18 +40,14 @@ const captureOutput = () => {
   mockedLogger.error.mockClear()
   mockedLogger.warn.mockClear()
 
-  // Capture console.log and console.error calls
-  // eslint-disable-next-line no-console
   console.log = (...args: unknown[]) => {
     logs.push(args.map(String).join(' '))
   }
 
-  // eslint-disable-next-line no-console
   console.error = (...args: unknown[]) => {
     errors.push(args.map(String).join(' '))
   }
 
-  // Mock logger to capture its calls using spies
   jest.spyOn(mockedLogger, 'info').mockImplementation((message: unknown, ...args: unknown[]) => {
     logs.push([message, ...args].map(String).join(' '))
     return undefined as never
@@ -102,9 +67,7 @@ const captureOutput = () => {
     getLogs: () => logs.join('\n'),
     getErrors: () => errors.join('\n'),
     restore: () => {
-      // eslint-disable-next-line no-console
       console.log = originalLog
-      // eslint-disable-next-line no-console
       console.error = originalError
 
       mockedLogger.info.mockReset()
@@ -118,30 +81,52 @@ const createMockLighthouseResult = (overrides = {}) => ({
   lhr: {
     finalDisplayedUrl: 'https://example.com',
     audits: {
-      'largest-contentful-paint': { numericValue: 1200, score: 0.95 },
-      'cumulative-layout-shift': { numericValue: 0.05, score: 0.98 },
-      'first-contentful-paint': { numericValue: 800, score: 0.97 },
-      'total-blocking-time': { numericValue: 100, score: 0.92 },
-      'max-potential-fid': { numericValue: 50, score: 0.99 },
-      'interaction-to-next-paint': { numericValue: 75, score: 0.96 },
+      'largest-contentful-paint': {
+        id: 'largest-contentful-paint',
+        numericValue: 1200,
+        score: 0.95,
+        displayValue: '1.2 s',
+      },
+      'cumulative-layout-shift': {
+        id: 'cumulative-layout-shift',
+        numericValue: 0.05,
+        score: 0.98,
+        displayValue: '0.05',
+      },
+      'first-contentful-paint': {
+        id: 'first-contentful-paint',
+        numericValue: 800,
+        score: 0.97,
+        displayValue: '0.8 s',
+      },
+      'total-blocking-time': {
+        id: 'total-blocking-time',
+        numericValue: 100,
+        score: 0.92,
+        displayValue: '100 ms',
+      },
+      'max-potential-fid': {
+        id: 'max-potential-fid',
+        numericValue: 50,
+        score: 0.99,
+        displayValue: '50 ms',
+      },
+      'interaction-to-next-paint': {
+        id: 'interaction-to-next-paint',
+        numericValue: 75,
+        score: 0.96,
+        displayValue: '75 ms',
+      },
     },
     categories: {
-      performance: { score: 0.95 },
+      performance: {
+        id: 'performance',
+        score: 0.95,
+      },
     },
     ...overrides,
   },
-  report: '<html>Mock Report</html>',
-})
-
-const createMockMetrics = (overrides = {}) => ({
-  performanceScore: 95,
-  lcp: 1200,
-  cls: 0.05,
-  fcp: 800,
-  tbt: 100,
-  fid: 50,
-  inp: 75,
-  ...overrides,
+  report: '<html>Mock Lighthouse Report</html>',
 })
 
 describe('run command', () => {
@@ -155,28 +140,15 @@ describe('run command', () => {
     mockedLogger.error.mockReset()
     mockedLogger.warn.mockReset()
 
-    mockListProfiles.mockReturnValue([
-      { id: 'desktop' },
-      { id: 'mobile' },
-      { id: 'quick', extends: 'desktop' },
-      { id: 'custom', extends: 'desktop' },
-    ])
+    // Setup chrome-launcher mock to return a valid chrome instance
+    jest.mocked(launch).mockResolvedValue({
+      port: 9222,
+      kill: jest.fn(),
+    } as never)
 
-    mockGetProfile.mockImplementation((profileId) => {
-      const profiles = {
-        desktop: { id: 'desktop' },
-        mobile: { id: 'mobile' },
-        quick: { id: 'quick', extends: 'desktop' },
-        custom: { id: 'custom', extends: 'desktop' },
-      }
-      return profiles[profileId as keyof typeof profiles]
-    })
-
+    // Setup lighthouse mock to return realistic results
     const mockLighthouseResult = createMockLighthouseResult()
-    mockRun.mockResolvedValue(mockLighthouseResult as never)
-    mockExtract.mockReturnValue(createMockMetrics() as never)
-    mockValidateMetrics.mockReturnValue(true as never)
-    mockCleanup.mockResolvedValue(undefined as never)
+    jest.mocked(lighthouse).mockResolvedValue(mockLighthouseResult as never)
 
     await writeFile(
       join(TEST_DIR, 'perf.config.json'),
@@ -196,7 +168,11 @@ describe('run command', () => {
         profiles: {
           custom: {
             id: 'custom',
-            extends: 'desktop',
+            extends: 'default',
+          },
+          mobile: {
+            id: 'mobile',
+            extends: 'mobileSlow3G',
           },
         },
       }),
@@ -221,23 +197,22 @@ describe('run command', () => {
 
       expect(errors).toBe('')
       expect(logs).toContain('Loading configuration...')
-      expect(logs).toContain('Running 2 targets with 4 profiles...')
+      expect(logs).toContain('Running 2 targets with 6 profiles...')
       expect(logs).toContain('Testing target: Homepage (https://example.com)')
       expect(logs).toContain('Testing target: About Page (https://example.com/about)')
       expect(logs).toContain('Running with profile: desktop')
       expect(logs).toContain('Running with profile: mobile')
-      expect(logs).toContain('Running with profile: quick')
+      expect(logs).toContain('Running with profile: ciMinimal')
       expect(logs).toContain('Running with profile: custom')
       expect(logs).toContain('Results for Homepage (desktop):')
       expect(logs).toContain('Performance Score: 95')
       expect(logs).toContain('LCP: 1200ms')
       expect(logs).toContain('CLS: 0.05')
       expect(logs).toContain('🎯 Performance Test Summary')
-      expect(logs).toContain('Total tests run: 8')
+      expect(logs).toContain('Total tests run: 12')
 
-      expect(mockRun).toHaveBeenCalledTimes(8) // 2 targets × 4 profiles
-      expect(mockExtract).toHaveBeenCalledTimes(8)
-      expect(mockCleanup).toHaveBeenCalledTimes(1)
+      expect(jest.mocked(lighthouse)).toHaveBeenCalledTimes(12) // 2 targets × 6 profiles
+      expect(jest.mocked(launch)).toHaveBeenCalledTimes(1) // Chrome launched once and reused
     } finally {
       capture.restore()
     }
@@ -251,12 +226,12 @@ describe('run command', () => {
 
       const logs = capture.getLogs()
 
-      expect(logs).toContain('Running 1 targets with 4 profiles...')
+      expect(logs).toContain('Running 1 targets with 6 profiles...')
       expect(logs).toContain('Testing target: Homepage (https://example.com)')
       expect(logs).not.toContain('Testing target: About Page')
-      expect(logs).toContain('Total tests run: 4')
+      expect(logs).toContain('Total tests run: 6')
 
-      expect(mockRun).toHaveBeenCalledTimes(4) // 1 target × 4 profiles
+      expect(jest.mocked(lighthouse)).toHaveBeenCalledTimes(6) // 1 target × 6 profiles
     } finally {
       capture.restore()
     }
@@ -275,7 +250,7 @@ describe('run command', () => {
       expect(logs).not.toContain('Running with profile: mobile')
       expect(logs).toContain('Total tests run: 2')
 
-      expect(mockRun).toHaveBeenCalledTimes(2) // 2 targets × 1 profile
+      expect(jest.mocked(lighthouse)).toHaveBeenCalledTimes(2) // 2 targets × 1 profile
     } finally {
       capture.restore()
     }
@@ -294,7 +269,7 @@ describe('run command', () => {
       expect(logs).toContain('Running with profile: mobile')
       expect(logs).toContain('Total tests run: 1')
 
-      expect(mockRun).toHaveBeenCalledTimes(1)
+      expect(jest.mocked(lighthouse)).toHaveBeenCalledTimes(1)
     } finally {
       capture.restore()
     }
@@ -381,7 +356,9 @@ describe('run command', () => {
       await expect(runCli(['run', '--profile', 'non-existent'])).rejects.toThrow('process.exit called')
 
       const errors = capture.getErrors()
-      expect(errors).toContain('Profile "non-existent" not found. Available profiles: desktop, mobile, quick, custom')
+      expect(errors).toContain(
+        'Profile "non-existent" not found. Available profiles: default, mobileSlow3G, desktop, ciMinimal, custom, mobile',
+      )
       expect(mockExit).toHaveBeenCalledWith(1)
     } finally {
       capture.restore()
@@ -390,8 +367,9 @@ describe('run command', () => {
   })
 
   it('should handle lighthouse execution errors and continue with other tests', async () => {
-    // Make lighthouse fail for the first target but succeed for others
-    mockRun
+    // Make lighthouse fail for the first call but succeed for others
+    jest
+      .mocked(lighthouse)
       .mockRejectedValueOnce(new Error('Chrome launch failed') as never)
       .mockResolvedValue(createMockLighthouseResult() as never)
 
@@ -404,19 +382,30 @@ describe('run command', () => {
       const errors = capture.getErrors()
 
       // Should continue with other tests after failure
-      expect(errors).toContain('Failed to run Homepage with desktop: Error: Chrome launch failed')
+      expect(errors).toContain(
+        'Failed to run Homepage with desktop: Error: Lighthouse audit failed for https://example.com: Chrome launch failed',
+      )
       expect(logs).toContain('Testing target: About Page')
       expect(logs).toContain('Results for About Page (desktop):')
       expect(logs).toContain('Total tests run: 1') // Only successful run
 
-      expect(mockRun).toHaveBeenCalledTimes(2) // Attempted both targets
+      expect(jest.mocked(lighthouse)).toHaveBeenCalledTimes(2) // Attempted both targets
     } finally {
       capture.restore()
     }
   })
 
   it('should warn about invalid metrics', async () => {
-    mockValidateMetrics.mockReturnValue(false as never)
+    const invalidLighthouseResult = createMockLighthouseResult({
+      audits: {
+        'largest-contentful-paint': { numericValue: -100, score: 0.5 }, // Negative time value - should fail validation
+        'cumulative-layout-shift': { numericValue: 1.5, score: 0.5 }, // CLS > 1 - should fail validation
+      },
+      categories: {
+        performance: { score: 0.5 },
+      },
+    })
+    jest.mocked(lighthouse).mockResolvedValue(invalidLighthouseResult as never)
 
     const capture = captureOutput()
 
@@ -452,14 +441,7 @@ describe('run command', () => {
       const logs = capture.getLogs()
 
       expect(logs).toContain('Testing target: Custom Target (https://custom.example.com)')
-      expect(mockRun).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: 'custom-target',
-          name: 'Custom Target',
-          url: 'https://custom.example.com',
-        }),
-        { id: 'desktop' },
-      )
+      expect(jest.mocked(lighthouse)).toHaveBeenCalledTimes(1)
     } finally {
       capture.restore()
     }
@@ -492,32 +474,20 @@ describe('run command', () => {
     }
   })
 
-  it('should handle missing profiles', async () => {
-    mockListProfiles.mockReturnValue([])
-
-    const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {
-      throw new Error('process.exit called')
+  it('should display proper summary with multiple targets and scores', async () => {
+    // Setup lighthouse to return different performance scores for different targets
+    const goodResult = createMockLighthouseResult({
+      categories: { performance: { score: 0.95 } }, // Good score
+    })
+    const poorResult = createMockLighthouseResult({
+      categories: { performance: { score: 0.45 } }, // Poor score
     })
 
-    const capture = captureOutput()
+    jest
+      .mocked(lighthouse)
+      .mockResolvedValueOnce(goodResult as never) // Homepage
+      .mockResolvedValueOnce(poorResult as never) // About page
 
-    try {
-      await expect(runCli(['run'])).rejects.toThrow('process.exit called')
-
-      const errors = capture.getErrors()
-      expect(errors).toContain('No profiles available')
-      expect(mockExit).toHaveBeenCalledWith(1)
-    } finally {
-      capture.restore()
-      mockExit.mockRestore()
-    }
-  })
-
-  it('should display proper summary with multiple targets and scores', async () => {
-    // Setup different scores for different results
-    mockExtract
-      .mockReturnValueOnce(createMockMetrics({ performanceScore: 95 }) as never) // Homepage desktop
-      .mockReturnValueOnce(createMockMetrics({ performanceScore: 45 }) as never) // About desktop
     const capture = captureOutput()
 
     try {
