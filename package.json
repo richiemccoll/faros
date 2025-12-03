@@ -2,6 +2,7 @@
   "name": "faros",
   "private": true,
   "version": "0.0.1",
+  "type": "module",
   "bin": {
     "faros": "./bin/run"
   },
@@ -28,7 +29,7 @@
     "format:fix": "prettier . --write",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "start": "ts-node ./bin/run.ts",
+    "start": "tsx ./bin/run.ts",
     "start:node": "node ./bin/run",
     "test": "jest",
     "test:watch": "jest --watchAll",
@@ -64,12 +65,15 @@
     "ts-jest": "^29.1.4",
     "ts-node": "^10.9.2",
     "tsup": "^8.0.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.4.5"
   },
   "dependencies": {
+    "chrome-launcher": "^1.2.1",
     "consola": "^3.2.3",
     "dotenv": "^16.4.5",
     "giget": "^1.2.3",
+    "lighthouse": "^13.0.1",
     "picocolors": "^1.0.1",
     "yargs": "^17.7.2",
     "zod": "^4.1.13"

@@ -1,8 +1,13 @@
 /** @type {import('ts-jest').JestConfigWithTsJest} */
-module.exports = {
-  preset: 'ts-jest',
+export default {
+  preset: 'ts-jest/presets/default-esm',
+  extensionsToTreatAsEsm: ['.ts'],
   testEnvironment: 'node',
   modulePathIgnorePatterns: ['<rootDir>/dist/'],
+  transformIgnorePatterns: ['node_modules/(?!(chrome-launcher)/)'],
+  transform: {
+    '^.+\\.ts$': ['ts-jest', { useESM: true }],
+  },
   collectCoverage: true,
   collectCoverageFrom: [
     'src/**/*.ts',

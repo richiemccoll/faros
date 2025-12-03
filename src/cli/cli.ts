@@ -1,6 +1,7 @@
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
 import { printConfigCommand } from './print-config'
+import { runCommand } from './run'
 
 export function createCli() {
   return yargs(hideBin(process.argv))
@@ -25,6 +26,7 @@ export function createCli() {
       global: true,
     })
     .command(printConfigCommand)
+    .command(runCommand)
     .demandCommand(1, 'You need to specify a command')
     .help()
     .alias('help', 'h')

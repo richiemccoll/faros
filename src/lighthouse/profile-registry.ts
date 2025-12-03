@@ -1,4 +1,5 @@
 import type { ProfileRef } from '../core/types'
+import { deepMerge } from '../core/utils/deep-merge'
 import { builtInProfiles } from './profiles'
 
 export class ProfileRegistryError extends Error {
@@ -64,24 +65,7 @@ export class ProfileRegistry {
     return {
       ...baseProfile,
       ...profile,
-      lighthouseConfig: this.deepMerge(baseProfile.lighthouseConfig || {}, profile.lighthouseConfig || {}),
+      lighthouseConfig: deepMerge(baseProfile.lighthouseConfig || {}, profile.lighthouseConfig || {}),
     }
-  }
-
-  private deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
-    const result = { ...target }
-
-    for (const key in source) {
-      if (source[key] !== null && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-        result[key] = this.deepMerge(
-          (target[key] as Record<string, unknown>) || {},
-          source[key] as Record<string, unknown>,
-        )
-      } else {
-        result[key] = source[key]
-      }
-    }
-
-    return result
   }
 }

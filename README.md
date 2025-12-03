@@ -16,7 +16,7 @@ npm install -g faros
 
 ## Quick Start
 
-1. **Create a configuration JSON file:**
+**Create a configuration JSON file:**
 
 ```json
 {
@@ -38,13 +38,74 @@ npm install -g faros
 }
 ```
 
-2. **Validate your configuration:**
+## CLI Commands
+
+### `run` - Performance Testing
+
+Executes Lighthouse performance tests on configured targets with specified profiles.
 
 ```bash
-faros print-config
+# Run all targets with all profiles
+faros run
+
+# Run specific target only
+faros run --target homepage
+
+# Run with specific profile only
+faros run --profile mobile
+
+# Run specific target with specific profile
+faros run --target homepage --profile desktop
+
+# Load custom config file
+faros run --config custom.config.json
+
+# Verbose output with detailed logging
+faros run --verbose
+
+# Quiet mode - JSON output only
+faros run --quiet
 ```
 
-## CLI Commands
+**Output example:**
+
+```
+ℹ Loading configuration...
+ℹ Loaded config with 2 targets and 1 custom profiles
+ℹ Running 2 targets with 2 profiles...
+
+Testing target: homepage (https://example.com)
+ℹ   Running with profile: desktop
+    Results for homepage (desktop):
+      Performance Score: 95
+      LCP: 1247ms
+      CLS: 0.02
+      FID: 12ms
+      INP: N/A
+      TBT: 45ms
+      FCP: 892ms
+
+ℹ   Running with profile: mobile
+    Results for homepage (mobile):
+      Performance Score: 78
+      LCP: 2156ms
+      CLS: 0.08
+      FID: 89ms
+      INP: N/A
+      TBT: 234ms
+      FCP: 1523ms
+
+🎯 Performance Test Summary
+   Total tests run: 4
+
+   📊 homepage:
+     🟢 desktop: 95 (Performance Score)
+     🟡 mobile: 78 (Performance Score)
+
+   📊 checkout:
+     🟢 desktop: 92 (Performance Score)
+     🔴 mobile: 45 (Performance Score)
+```
 
 ### `print-config` - Configuration Validation
 
@@ -67,13 +128,13 @@ faros print-config --quiet
 {
   "targets": [
     {
-      "id": "homepage", 
+      "id": "homepage",
       "url": "https://example.com",
       "tags": ["critical"]
     },
     {
       "id": "mobile-checkout",
-      "url": "https://example.com/checkout", 
+      "url": "https://example.com/checkout",
       "profile": "customMobile"
     }
   ],
@@ -90,7 +151,7 @@ faros print-config --quiet
   "_resolvedProfiles": {
     "desktop": {
       "id": "desktop",
-      "name": "Desktop Fast", 
+      "name": "Desktop Fast",
       "lighthouseConfig": {
         "settings": {
           "emulatedFormFactor": "desktop",
@@ -99,7 +160,7 @@ faros print-config --quiet
       }
     },
     "customMobile": {
-      "id": "customMobile", 
+      "id": "customMobile",
       "name": "Custom Mobile Profile",
       "lighthouseConfig": {
         "settings": {
@@ -113,6 +174,8 @@ faros print-config --quiet
 }
 ✅ Configuration is valid
 ```
+
+---
 
 ### Global Options
 
@@ -202,12 +265,12 @@ Faros includes a built-in ProfileRegistry that provides pre-configured Lighthous
 
 ### Built-in Profiles
 
-| Profile ID | Description | Use Case |
-|------------|-------------|----------|
-| `default` | Balanced desktop settings | General purpose testing |
-| `desktop` | Fast desktop connection | Desktop optimization |
+| Profile ID     | Description                    | Use Case                   |
+| -------------- | ------------------------------ | -------------------------- |
+| `default`      | Balanced desktop settings      | General purpose testing    |
+| `desktop`      | Fast desktop connection        | Desktop optimization       |
 | `mobileSlow3G` | Mobile with slow 3G throttling | Mobile performance testing |
-| `ciMinimal` | Minimal config for CI/CD | Faster automated testing |
+| `ciMinimal`    | Minimal config for CI/CD       | Faster automated testing   |
 
 ### Profile Inheritance
 
@@ -232,6 +295,7 @@ Custom profiles can extend built-in profiles using the `extends` property:
 ```
 
 **Inheritance Rules:**
+
 - Base profile settings are preserved
 - Custom settings are deep-merged over base settings
 - Arrays are replaced entirely (not merged)
