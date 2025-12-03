@@ -56,7 +56,7 @@ export class LighthouseLauncher {
 
     try {
       this.chrome = await launch({
-        chromeFlags: this.options.chromeFlags,
+        chromeFlags: this.options.headless ? [...this.options.chromeFlags, '--headless'] : this.options.chromeFlags,
         logLevel: this.options.logLevel,
       })
     } catch (error) {

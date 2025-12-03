@@ -1,10 +1,8 @@
 import type { CommandModule } from 'yargs'
 import { loadConfig } from '../core/config'
-import { ProfileRegistry } from '../lighthouse/profile-registry'
-import { LighthouseLauncher } from '../lighthouse/launcher'
-import { MetricExtractor } from '../lighthouse/metric-extractor'
+import { createRunner } from '../core/runner'
 import { logger } from '../logger'
-import type { Target, NormalizedMetrics } from '../core/types'
+import type { Target, NormalizedMetrics, PerfConfig, LighthouseResult, Task } from '../core/types'
 
 interface GlobalOptions {
   config?: string
@@ -65,13 +63,24 @@ async function runPerformanceTests(args: RunCommandArgs): Promise<void> {
     )
   }
 
-  const profileRegistry = new ProfileRegistry(config.profiles)
-  const launcher = new LighthouseLauncher()
-  const extractor = new MetricExtractor()
+  // Filter targets and profiles based on CLI arguments
+  const filteredConfig = filterConfig(config, args)
+
+  if (filteredConfig.targets.length === 0) {
+    if (args.target) {
+      logger.error(`Target "${args.target}" not found in configuration`)
+      process.exit(1)
+    } else {
+      logger.error('No targets found in configuration')
+      process.exit(1)
+    }
+  }
+
+  const runner = createRunner(filteredConfig)
 
   // Ensure cleanup on process exit
   const cleanup = async () => {
-    await launcher.cleanup()
+    await runner.stop()
   }
 
   process.on('SIGINT', async () => {
@@ -87,86 +96,21 @@ async function runPerformanceTests(args: RunCommandArgs): Promise<void> {
   })
 
   try {
-    const targetsToRun = args.target
-      ? config.targets.filter((t) => t.name === args.target || t.id === args.target)
-      : config.targets
+    // Set up event handlers for progress reporting
+    setupProgressHandlers(runner, args.quiet)
 
-    if (targetsToRun.length === 0) {
-      if (args.target) {
-        logger.error(`Target "${args.target}" not found in configuration`)
-        process.exit(1)
-      } else {
-        logger.error('No targets found in configuration')
-        process.exit(1)
-      }
-    }
+    logger.info(`Running ${filteredConfig.targets.length} targets with concurrency ${filteredConfig.concurrency}...`)
 
-    const availableProfiles = profileRegistry.listProfiles().map((p) => p.id)
-    const profilesToUse = args.profile ? availableProfiles.filter((p) => p === args.profile) : availableProfiles
+    const results = await runner.run()
 
-    if (profilesToUse.length === 0) {
-      if (args.profile) {
-        logger.error(`Profile "${args.profile}" not found. Available profiles: ${availableProfiles.join(', ')}`)
-        process.exit(1)
-      } else {
-        logger.error('No profiles available')
-        process.exit(1)
-      }
-    }
+    const displayResults = convertRunnerResults(results)
 
-    logger.info(`Running ${targetsToRun.length} targets with ${profilesToUse.length} profiles...`)
-
-    const results: PerformanceResult[] = []
-
-    // Run performance tests
-    for (const target of targetsToRun) {
-      if (!args.quiet) {
-        logger.info(`\nTesting target: ${target.name} (${target.url})`)
-      }
-
-      for (const profileName of profilesToUse) {
-        if (!args.quiet) {
-          logger.info(`  Running with profile: ${profileName}`)
-        }
-
-        try {
-          const profile = profileRegistry.getProfile(profileName)
-
-          const lighthouseResult = await launcher.run(target, profile)
-
-          const metrics = extractor.extract(lighthouseResult.lhr)
-
-          if (!extractor.validateMetrics(metrics)) {
-            logger.warn(`  Warning: Some metrics appear invalid for ${target.name} with ${profileName}`)
-          }
-
-          const result: PerformanceResult = {
-            target,
-            profileName,
-            metrics,
-            timestamp: new Date().toISOString(),
-            url: lighthouseResult.lhr.finalDisplayedUrl || target.url,
-          }
-
-          results.push(result)
-
-          if (!args.quiet) {
-            displayMetrics(result)
-          }
-        } catch (error) {
-          logger.error(`  Failed to run ${target.name} with ${profileName}:`, error)
-          // Continue with other tests rather than failing completely
-        }
-      }
-    }
-
-    // Summary
     if (!args.quiet) {
-      displaySummary(results)
+      displaySummary(displayResults)
     } else {
       // In quiet mode, just output JSON results
       // eslint-disable-next-line no-console
-      console.log(JSON.stringify(results, null, 2))
+      console.log(JSON.stringify(displayResults, null, 2))
     }
   } catch (error) {
     logger.error('Performance test execution failed:', error)
@@ -177,25 +121,80 @@ async function runPerformanceTests(args: RunCommandArgs): Promise<void> {
   }
 }
 
-function displayMetrics(result: PerformanceResult): void {
-  const { metrics, target, profileName } = result
+/**
+ * Filter configuration based on CLI arguments
+ */
+function filterConfig(config: PerfConfig, args: RunCommandArgs): PerfConfig {
+  const targetsToRun = args.target
+    ? config.targets.filter((t) => t.name === args.target || t.id === args.target)
+    : config.targets
 
-  // eslint-disable-next-line no-console
-  console.log(`    Results for ${target.name} (${profileName}):`)
-  // eslint-disable-next-line no-console
-  console.log(`      Performance Score: ${metrics.performanceScore ?? 'N/A'}`)
-  // eslint-disable-next-line no-console
-  console.log(`      LCP: ${metrics.lcp ? `${metrics.lcp}ms` : 'N/A'}`)
-  // eslint-disable-next-line no-console
-  console.log(`      CLS: ${metrics.cls ?? 'N/A'}`)
-  // eslint-disable-next-line no-console
-  console.log(`      FID: ${metrics.fid ? `${metrics.fid}ms` : 'N/A'}`)
-  // eslint-disable-next-line no-console
-  console.log(`      INP: ${metrics.inp ? `${metrics.inp}ms` : 'N/A'}`)
-  // eslint-disable-next-line no-console
-  console.log(`      TBT: ${metrics.tbt ? `${metrics.tbt}ms` : 'N/A'}`)
-  // eslint-disable-next-line no-console
-  console.log(`      FCP: ${metrics.fcp ? `${metrics.fcp}ms` : 'N/A'}`)
+  // For profile filtering, we need to update the target's profile field or use defaultProfile
+  const filteredConfig: PerfConfig = {
+    ...config,
+    targets: targetsToRun.map((target) => ({
+      ...target,
+      // If CLI specifies a profile, use that; otherwise keep target's profile or use default
+      profile: args.profile || target.profile || config.defaultProfile,
+    })),
+  }
+
+  return filteredConfig
+}
+
+/**
+ * Set up progress handlers for the runner
+ */
+function setupProgressHandlers(runner: ReturnType<typeof createRunner>, quiet?: boolean): void {
+  if (quiet) return
+
+  let taskCount = 0
+  let completedTasks = 0
+  let failedTasks = 0
+
+  runner.on('runStart', (taskCount: number) => {
+    logger.info(`🚀 Starting ${taskCount} performance test(s)`)
+  })
+
+  runner.on('taskStart', (task: Task) => {
+    taskCount++
+    logger.info(`⏳ Running: ${task.target.name || task.target.id} (${task.profile.id})`)
+  })
+
+  runner.on('taskComplete', (result: LighthouseResult) => {
+    completedTasks++
+    const score = result.metrics.performanceScore
+    const scoreIcon = score && score >= 90 ? '🟢' : score && score >= 50 ? '🟡' : '🔴'
+    logger.info(`✅ Completed: ${result.target.name || result.target.id} ${scoreIcon} Score: ${score ?? 'N/A'}`)
+  })
+
+  runner.on('taskFailed', (task: Task, error: Error, willRetry: boolean) => {
+    if (!willRetry) {
+      failedTasks++
+    }
+    logger.error(`❌ ${willRetry ? 'Retrying' : 'Failed'}: ${task.target.name || task.target.id} - ${error.message}`)
+  })
+
+  runner.on('taskRetry', (task: Task, attempt: number) => {
+    logger.info(`🔄 Retry ${attempt}: ${task.target.name || task.target.id}`)
+  })
+
+  runner.on('runComplete', () => {
+    logger.info(`🏁 Performance tests completed: ${completedTasks} passed, ${failedTasks} failed`)
+  })
+}
+
+/**
+ * Convert runner results to display format
+ */
+function convertRunnerResults(results: LighthouseResult[]): PerformanceResult[] {
+  return results.map((result) => ({
+    target: result.target,
+    profileName: result.profile.id,
+    metrics: result.metrics,
+    timestamp: result.timestamp.toISOString(),
+    url: result.target.url, // Runner doesn't have finalDisplayedUrl, use target URL
+  }))
 }
 
 function displaySummary(results: PerformanceResult[]): void {
