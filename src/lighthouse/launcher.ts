@@ -1,11 +1,19 @@
 import { launch, LaunchedChrome } from 'chrome-launcher'
-import lighthouse, { type Result } from 'lighthouse'
-import * as fs from 'fs'
-import * as path from 'path'
-import * as os from 'os'
+import { type Result } from 'lighthouse'
+import { fork } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
+import * as fs from 'node:fs'
+import { mkdir, readFile, unlink } from 'node:fs/promises'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import { logger } from '../logger'
 import { deepMergeMutable } from '../core/utils/deep-merge'
 import type { Target, ProfileRef } from '../core/types'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 interface LighthouseSettings {
   emulatedFormFactor?: 'desktop' | 'mobile' | 'none'
@@ -79,22 +87,51 @@ export class LighthouseLauncher {
       port: this.chrome!.port,
     }
 
-    try {
-      const runnerResult = await lighthouse(target.url, flags, lighthouseConfig)
+    // The worker process will write the lighthouse report
+    // into a temp file that this parent process will read and parse
+    const tmpDir = path.join(os.tmpdir(), 'lh-worker')
+    await mkdir(tmpDir, { recursive: true })
+    const tmpFile = path.join(tmpDir, `${randomUUID()}.json`)
+    const maxTimeoutMs = 45000
 
-      if (!runnerResult) {
-        throw new Error('Lighthouse returned null result')
-      }
+    const workerPath = path.join(__dirname, 'lighthouse-worker.js')
 
-      return {
-        lhr: runnerResult.lhr,
-        report: runnerResult.report as string,
-        artifacts: runnerResult.artifacts as unknown as Record<string, unknown>,
-      }
-    } catch (error) {
-      throw new Error(
-        `Lighthouse audit failed for ${target.url}: ${error instanceof Error ? error.message : String(error)}`,
-      )
+    await new Promise<void>((resolve, reject) => {
+      const child = fork(workerPath, [tmpFile], {
+        stdio: 'inherit', // no IPC, just inherit stdio
+        env: {
+          ...process.env,
+          LH_TARGET_URL: target.url,
+          LH_FLAGS: JSON.stringify(flags),
+          LH_CONFIG: JSON.stringify(lighthouseConfig),
+        },
+      })
+
+      const timer = setTimeout(() => {
+        child.kill('SIGKILL')
+        reject(new Error(`Lighthouse worker timeout after ${maxTimeoutMs}ms`))
+      }, maxTimeoutMs)
+
+      child.once('exit', (code) => {
+        clearTimeout(timer)
+        if (code === 0) return resolve()
+        reject(new Error(`Lighthouse worker exited with code ${code}`))
+      })
+
+      child.once('error', (err) => {
+        clearTimeout(timer)
+        reject(err)
+      })
+    })
+
+    const raw = await readFile(tmpFile, 'utf8')
+    const parsed = JSON.parse(raw)
+    void unlink(tmpFile).catch(() => {})
+
+    return {
+      lhr: parsed.lhr,
+      report: parsed.report,
+      artifacts: parsed.artifacts,
     }
   }
 
