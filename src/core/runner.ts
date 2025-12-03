@@ -4,7 +4,7 @@ import { Target, ProfileRef, PerfConfig } from './types'
 import { AssertionReport } from './types/assertions'
 import { RunSummary } from './types/reporting'
 import { Scheduler, createScheduler, SchedulerConfig } from './scheduler'
-import { LighthouseLauncher, createLighthouseLauncher } from '../lighthouse/launcher'
+import { ProcessManager, createProcessManager } from '../lighthouse/process-manager'
 import { MetricExtractor, createMetricExtractor } from '../lighthouse/metric-extractor'
 import { ProfileRegistry } from '../lighthouse/profile-registry'
 import { AssertionEngine, createAssertionEngine, AssertionContext } from '../assertions/engine'
@@ -26,7 +26,7 @@ export interface RunnerEvents {
  */
 export class Runner extends EventEmitter {
   private scheduler: Scheduler
-  private lighthouseLauncher: LighthouseLauncher
+  private processManager: ProcessManager
   private metricExtractor: MetricExtractor
   private profileRegistry: ProfileRegistry
   private assertionEngine: AssertionEngine
@@ -44,9 +44,10 @@ export class Runner extends EventEmitter {
     }
     this.scheduler = createScheduler(schedulerConfig)
 
-    // Initialize lighthouse launcher in headless mode for CI/automated environments
-    this.lighthouseLauncher = createLighthouseLauncher({
-      headless: true, // Always run in headless mode by default for performance and CI compatibility
+    // Initialize process manager for true concurrent execution
+    this.processManager = createProcessManager({
+      maxConcurrency: config.concurrency, // Use same concurrency as scheduler
+      processTimeout: config.timeout || 60000, // Use configured timeout
       logLevel: 'error', // Keep quiet during runs
     })
 
@@ -99,7 +100,7 @@ export class Runner extends EventEmitter {
 
   async stop(): Promise<void> {
     this.scheduler.stop()
-    await this.lighthouseLauncher.cleanup()
+    await this.processManager.killAll()
   }
 
   getRunSummary(): RunSummary {
@@ -119,20 +120,18 @@ export class Runner extends EventEmitter {
     }
 
     try {
-      const profile = this.profileRegistry.getProfile(task.profile.id)
+      // Execute task using ProcessManager for true concurrency
+      const lighthouseResult = await this.processManager.execute(task)
 
-      const lighthouseResult = await this.lighthouseLauncher.run(task.target, profile)
+      // Extract metrics from the raw Lighthouse result
+      const metrics = this.metricExtractor.extract(lighthouseResult.raw as unknown as import('lighthouse').Result)
 
-      const metrics = this.metricExtractor.extract(lighthouseResult.lhr)
-
+      // Update the result with extracted metrics
       const result: LighthouseResult = {
-        taskId: task.id,
-        target: task.target,
-        profile: task.profile,
+        ...lighthouseResult,
         metrics,
-        duration: Date.now() - taskStartTime.getTime(),
+        duration: Date.now() - taskStartTime.getTime(), // Override with actual task duration
         timestamp: new Date(),
-        raw: this.config.output?.includeRawLighthouse ? lighthouseResult.lhr : undefined,
       }
 
       taskResult.lighthouseResult = result
