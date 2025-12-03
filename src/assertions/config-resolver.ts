@@ -16,12 +16,7 @@ export class AssertionConfigResolver {
    * Resolve final assertion config for a specific target
    */
   resolve(config: AssertionConfig, target: Target): AssertionConfig {
-    logger.debug(`Resolving assertion config for target ${target.id}`, {
-      targetTags: target.tags,
-      hasGlobalMetrics: !!config.metrics,
-      hasTagOverrides: !!config.tags,
-      hasTargetOverrides: !!config.targets,
-    })
+    logger.debug(`Resolving assertion config for target ${target.id}`)
 
     let resolvedMetrics: MetricThresholds = { ...config.metrics }
 
@@ -50,10 +45,7 @@ export class AssertionConfigResolver {
       metrics: resolvedMetrics,
     }
 
-    logger.debug('Config resolution complete', {
-      targetId: target.id,
-      finalThresholds: Object.keys(resolvedMetrics || {}).length,
-    })
+    logger.debug('Config resolution complete')
 
     return resolved
   }

@@ -30,6 +30,7 @@ npm install -g faros
       "tags": ["critical"]
     }
   ],
+  "defaultProfile": "mobileSlow3G",
   "assertions": {
     "metrics": {
       "lcp": { "max": 2500 },
@@ -73,57 +74,21 @@ faros run --quiet
 
 ```
 ℹ Loading configuration...
-ℹ Loaded config with 2 targets and 1 custom profiles
-ℹ Running 2 targets with concurrency 2...
-ℹ Starting performance test run with 2 task(s)
-ℹ 🚀 Starting 2 performance test(s)
-ℹ ⏳ Running: Homepage (desktop)
-ℹ ⏳ Running: Checkout (desktop)
-ℹ ✅ Completed: Homepage 🟢 Score: 95
-ℹ ✅ Completed: Checkout 🟡 Score: 78
-ℹ Performance test run completed. 2 result(s)
-ℹ 🏁 Performance tests completed: 2 passed, 0 failed
+ℹ Loaded config with 1 targets and 0 custom profiles
+ℹ Running 1 targets with concurrency 1...
+ℹ Starting performance test run with 1 task(s)
+ℹ 🚀 Starting 1 performance test(s)                                                                                                     
+ℹ ⏳ Running: Homepage (mobileSlow3G)
+ℹ ✅ Completed: Homepage 🟢 Score: 100
+ℹ Performance test run completed. 1 result(s)
+ℹ 🏁 Performance tests completed: 1 passed, 0 failed
+✓ PASSED Performance Test Results (8.1s)
 
-🎯 Performance Test Summary
-   Total tests run: 4
+URL                 | Status | LCP    | CLS    | FID    | TBT    | FCP    | Score
+--------------------+--------+--------+--------+--------+--------+--------+-------
+https://example.com | PASS   | 901ms  | 0.000  | 45ms   | 0ms    | 901ms  | 100
 
-   📊 homepage:
-     Profile: desktop
-     URL: https://example.com/
-       🟢 Performance: 95
-       🟢 LCP: 1825ms
-       🟢 CLS: 0.045
-       � FCP: 1654ms
-       🟢 FID: 12ms
-       🟢 TBT: 89ms
-
-     Profile: mobile
-     URL: https://example.com/
-       🟡 Performance: 78
-       🟡 LCP: 3245ms
-       🟢 CLS: 0.087
-       🟡 FCP: 2890ms
-       🟡 FID: 156ms
-       🟡 TBT: 234ms
-
-   📊 checkout:
-     Profile: desktop
-     URL: https://example.com/
-       🟢 Performance: 92
-       🟢 LCP: 2145ms
-       🟢 CLS: 0.023
-       🟢 FCP: 1923ms
-       🟢 FID: 8ms
-       � TBT: 45ms
-
-     Profile: mobile
-     URL: https://example.com/
-       🔴 Performance: 45
-       🔴 LCP: 4567ms
-       🟡 CLS: 0.189
-       🔴 FCP: 4123ms
-       🔴 FID: 389ms
-       🔴 TBT: 567ms
+Tasks: 1 total, 1 completed, 0 failed
 ```
 
 ### `print-config` - Configuration Validation

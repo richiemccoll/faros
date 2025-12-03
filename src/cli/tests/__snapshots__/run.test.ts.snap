@@ -1,0 +1,131 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`run command should display proper summary with multiple targets and scores: run-multiple-targets-different-scores-output 1`] = `
+"Loading configuration...
+Loaded config with 2 targets and 2 custom profiles
+Running 2 targets with concurrency 2...
+Starting performance test run with 2 task(s)
+🚀 Starting 2 performance test(s)
+⏳ Running: Homepage (desktop)
+⏳ Running: About Page (desktop)
+✅ Completed: Homepage 🟢 Score: 95
+✅ Completed: About Page 🔴 Score: 45
+Performance test run completed. 2 result(s)
+🏁 Performance tests completed: 2 passed, 0 failed
+[32m✓ PASSED[39m Performance Test Results (0.0s)
+
+URL                       | Status | LCP    | CLS    | FID    | TBT    | FCP    | Score 
+--------------------------+--------+--------+--------+--------+--------+--------+-------
+https://example.com       | [32mPASS[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 95    
+https://example.com/about | [32mPASS[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 45    
+
+Tasks: 2 total, 2 completed, 0 failed"
+`;
+
+exports[`run command should run assertions when configured and include assertion results: run-with-assertions-output 1`] = `
+"Loading configuration...
+Loaded config with 1 targets and 1 custom profiles
+Running 1 targets with concurrency 1...
+Starting performance test run with 1 task(s)
+🚀 Starting 1 performance test(s)
+⏳ Running: Homepage (desktop)
+Starting assertion evaluation for task homepage_desktop_TASK_ID
+Resolving assertion config for target homepage
+Config resolution complete
+Evaluating metrics against thresholds
+Metric evaluation complete: 0 metrics evaluated
+Assertion evaluation complete for task homepage_desktop_TASK_ID: PASSED (0/0 assertions passed)
+Assertions evaluated for task homepage_desktop_TASK_ID: PASSED (0/0 passed)
+✅ Completed: Homepage 🟢 Score: 95
+Performance test run completed. 1 result(s)
+🏁 Performance tests completed: 1 passed, 0 failed
+[32m✓ PASSED[39m Performance Test Results (0.0s)
+
+URL                 | Status | LCP    | CLS    | FID    | TBT    | FCP    | Score 
+--------------------+--------+--------+--------+--------+--------+--------+-------
+https://example.com | [32mPASS[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 95    
+
+Tasks: 1 total, 1 completed, 0 failed"
+`;
+
+exports[`run command should run performance tests on all targets with all profiles: run-all-targets-output 1`] = `
+"Loading configuration...
+Loaded config with 2 targets and 2 custom profiles
+Running 2 targets with concurrency 2...
+Starting performance test run with 2 task(s)
+🚀 Starting 2 performance test(s)
+⏳ Running: Homepage (desktop)
+⏳ Running: About Page (desktop)
+✅ Completed: Homepage 🟢 Score: 95
+✅ Completed: About Page 🟢 Score: 95
+Performance test run completed. 2 result(s)
+🏁 Performance tests completed: 2 passed, 0 failed
+[32m✓ PASSED[39m Performance Test Results (0.0s)
+
+URL                       | Status | LCP    | CLS    | FID    | TBT    | FCP    | Score 
+--------------------------+--------+--------+--------+--------+--------+--------+-------
+https://example.com       | [32mPASS[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 95    
+https://example.com/about | [32mPASS[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 95    
+
+Tasks: 2 total, 2 completed, 0 failed"
+`;
+
+exports[`run command should run specific profile only: run-specific-profile-output 1`] = `
+"Loading configuration...
+Loaded config with 2 targets and 2 custom profiles
+Running 2 targets with concurrency 2...
+Starting performance test run with 2 task(s)
+🚀 Starting 2 performance test(s)
+⏳ Running: Homepage (desktop)
+⏳ Running: About Page (desktop)
+✅ Completed: Homepage 🟢 Score: 95
+✅ Completed: About Page 🟢 Score: 95
+Performance test run completed. 2 result(s)
+🏁 Performance tests completed: 2 passed, 0 failed
+[32m✓ PASSED[39m Performance Test Results (0.0s)
+
+URL                       | Status | LCP    | CLS    | FID    | TBT    | FCP    | Score 
+--------------------------+--------+--------+--------+--------+--------+--------+-------
+https://example.com       | [32mPASS[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 95    
+https://example.com/about | [32mPASS[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 95    
+
+Tasks: 2 total, 2 completed, 0 failed"
+`;
+
+exports[`run command should run specific target and profile combination: run-target-profile-combination-output 1`] = `
+"Loading configuration...
+Loaded config with 2 targets and 2 custom profiles
+Running 1 targets with concurrency 2...
+Starting performance test run with 1 task(s)
+🚀 Starting 1 performance test(s)
+⏳ Running: About Page (mobile)
+✅ Completed: About Page 🟢 Score: 95
+Performance test run completed. 1 result(s)
+🏁 Performance tests completed: 1 passed, 0 failed
+[32m✓ PASSED[39m Performance Test Results (0.0s)
+
+URL                       | Status | LCP    | CLS    | FID    | TBT    | FCP    | Score 
+--------------------------+--------+--------+--------+--------+--------+--------+-------
+https://example.com/about | [32mPASS[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 95    
+
+Tasks: 1 total, 1 completed, 0 failed"
+`;
+
+exports[`run command should run specific target only: run-specific-target-output 1`] = `
+"Loading configuration...
+Loaded config with 2 targets and 2 custom profiles
+Running 1 targets with concurrency 2...
+Starting performance test run with 1 task(s)
+🚀 Starting 1 performance test(s)
+⏳ Running: Homepage (desktop)
+✅ Completed: Homepage 🟢 Score: 95
+Performance test run completed. 1 result(s)
+🏁 Performance tests completed: 1 passed, 0 failed
+[32m✓ PASSED[39m Performance Test Results (0.0s)
+
+URL                 | Status | LCP    | CLS    | FID    | TBT    | FCP    | Score 
+--------------------+--------+--------+--------+--------+--------+--------+-------
+https://example.com | [32mPASS[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 95    
+
+Tasks: 1 total, 1 completed, 0 failed"
+`;

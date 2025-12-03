@@ -2,11 +2,13 @@ import { EventEmitter } from 'events'
 import { Task, LighthouseResult } from './types/execution'
 import { Target, ProfileRef, PerfConfig } from './types'
 import { AssertionReport } from './types/assertions'
+import { RunSummary } from './types/reporting'
 import { Scheduler, createScheduler, SchedulerConfig } from './scheduler'
 import { LighthouseLauncher, createLighthouseLauncher } from '../lighthouse/launcher'
 import { MetricExtractor, createMetricExtractor } from '../lighthouse/metric-extractor'
 import { ProfileRegistry } from '../lighthouse/profile-registry'
 import { AssertionEngine, createAssertionEngine, AssertionContext } from '../assertions/engine'
+import { ReportCollector, TaskResult } from '../reporting/report-collector'
 import { logger } from '../logger'
 
 export interface RunnerEvents {
@@ -15,7 +17,7 @@ export interface RunnerEvents {
   taskComplete: (result: LighthouseResult, assertions: AssertionReport) => void
   taskFailed: (task: Task, error: Error, willRetry: boolean) => void
   taskRetry: (task: Task, attempt: number) => void
-  runComplete: (results: LighthouseResult[], assertionReports: AssertionReport[]) => void
+  runComplete: (summary: RunSummary) => void
   runError: (error: Error) => void
 }
 
@@ -28,6 +30,7 @@ export class Runner extends EventEmitter {
   private metricExtractor: MetricExtractor
   private profileRegistry: ProfileRegistry
   private assertionEngine: AssertionEngine
+  private reportCollector: ReportCollector
   private config: PerfConfig
 
   constructor(config: PerfConfig) {
@@ -55,6 +58,8 @@ export class Runner extends EventEmitter {
 
     this.assertionEngine = createAssertionEngine()
 
+    this.reportCollector = new ReportCollector()
+
     this.setupEventForwarding()
 
     this.scheduler.setTaskHandler(this.executeTask.bind(this))
@@ -63,7 +68,7 @@ export class Runner extends EventEmitter {
   /**
    * Run performance tests for all targets
    */
-  async run(): Promise<LighthouseResult[]> {
+  async run(): Promise<RunSummary> {
     try {
       const tasks = this.generateTasks()
 
@@ -77,10 +82,13 @@ export class Runner extends EventEmitter {
       this.scheduler.addTasks(tasks)
       const results = await this.scheduler.run()
 
-      logger.info(`Performance test run completed. ${results.length} result(s)`)
-      this.emit('runComplete', results)
+      this.reportCollector.completeRun()
+      const summary = this.reportCollector.getSummary()
 
-      return results
+      logger.info(`Performance test run completed. ${results.length} result(s)`)
+      this.emit('runComplete', summary)
+
+      return summary
     } catch (error) {
       const runError = error instanceof Error ? error : new Error(String(error))
       logger.error('Performance test run failed:', runError)
@@ -94,8 +102,21 @@ export class Runner extends EventEmitter {
     await this.lighthouseLauncher.cleanup()
   }
 
+  getRunSummary(): RunSummary {
+    return this.reportCollector.getSummary()
+  }
+
+  getReportCollector(): ReportCollector {
+    return this.reportCollector
+  }
+
   private async executeTask(task: Task): Promise<LighthouseResult> {
-    const startTime = Date.now()
+    const taskStartTime = new Date()
+
+    const taskResult: TaskResult = {
+      task,
+      startTime: taskStartTime,
+    }
 
     try {
       const profile = this.profileRegistry.getProfile(task.profile.id)
@@ -109,17 +130,28 @@ export class Runner extends EventEmitter {
         target: task.target,
         profile: task.profile,
         metrics,
-        duration: Date.now() - startTime,
+        duration: Date.now() - taskStartTime.getTime(),
         timestamp: new Date(),
         raw: this.config.output?.includeRawLighthouse ? lighthouseResult.lhr : undefined,
       }
 
+      taskResult.lighthouseResult = result
+      taskResult.endTime = new Date()
+
       if (this.config.assertions) {
-        await this.evaluateAssertions(task, result)
+        const assertionReport = await this.evaluateAssertions(task, result)
+        taskResult.assertionReport = assertionReport
       }
+
+      this.reportCollector.addTaskResult(taskResult)
 
       return result
     } catch (error) {
+      taskResult.error = error instanceof Error ? error.message : String(error)
+      taskResult.endTime = new Date()
+
+      this.reportCollector.addTaskResult(taskResult)
+
       throw new Error(
         `Failed to execute task ${task.id} (${task.target.url} with ${task.profile.id}): ${
           error instanceof Error ? error.message : String(error)
@@ -131,7 +163,10 @@ export class Runner extends EventEmitter {
   /**
    * Evaluate assertions for a completed task and emit assertion events
    */
-  private async evaluateAssertions(task: Task, lighthouseResult: LighthouseResult): Promise<void> {
+  private async evaluateAssertions(
+    task: Task,
+    lighthouseResult: LighthouseResult,
+  ): Promise<AssertionReport | undefined> {
     try {
       const context: AssertionContext = {
         task,
@@ -147,13 +182,11 @@ export class Runner extends EventEmitter {
           `(${assertionReport.results.length - assertionReport.failureCount}/${assertionReport.results.length} passed)`,
       )
 
-      // For now, we'll store the assertion report in the result object for access by reporting
-      // In a future version, we might emit this as a separate event
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(lighthouseResult as any).assertionReport = assertionReport
+      return assertionReport
     } catch (error) {
       logger.error(`Assertion evaluation failed for task ${task.id}:`, error)
       // Don't throw - we want the lighthouse result to still be available even if assertions fail
+      return undefined
     }
   }
 

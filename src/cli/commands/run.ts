@@ -2,8 +2,9 @@
 import type { CommandModule } from 'yargs'
 import { loadConfig } from '../../core/config'
 import { createRunner } from '../../core/runner'
+import { CLIReporter } from '../../reporting'
 import { logger } from '../../logger'
-import type { Target, NormalizedMetrics, PerfConfig, LighthouseResult, Task } from '../../core/types'
+import type { PerfConfig, LighthouseResult, Task, RunSummary } from '../../core/types'
 
 interface GlobalOptions {
   config?: string
@@ -14,14 +15,6 @@ interface GlobalOptions {
 interface RunCommandArgs extends GlobalOptions {
   target?: string
   profile?: string
-}
-
-interface PerformanceResult {
-  target: Target
-  profileName: string
-  metrics: NormalizedMetrics
-  timestamp: string
-  url: string
 }
 
 export const runCommand: CommandModule<GlobalOptions, RunCommandArgs> = {
@@ -102,15 +95,22 @@ async function runPerformanceTests(args: RunCommandArgs): Promise<void> {
 
     logger.info(`Running ${filteredConfig.targets.length} targets with concurrency ${filteredConfig.concurrency}...`)
 
-    const results = await runner.run()
-
-    const displayResults = convertRunnerResults(results)
+    const runSummary = await runner.run()
 
     if (!args.quiet) {
-      displaySummary(displayResults)
+      const cliReporter = new CLIReporter({
+        showColors: true,
+        showMetrics: ['lcp', 'cls', 'fid', 'tbt', 'fcp', 'performanceScore'],
+      })
+      cliReporter.print(runSummary)
     } else {
-      // In quiet mode, just output JSON results
-      console.log(JSON.stringify(displayResults, null, 2))
+      // In quiet mode, output JSON results
+      console.log(JSON.stringify(runSummary, null, 2))
+    }
+
+    // Exit with error code if any tasks failed (but not in test environment)
+    if (!runSummary.passed && process.env.NODE_ENV !== 'test') {
+      process.exit(1)
     }
   } catch (error) {
     logger.error('Performance test execution failed:', error)
@@ -179,135 +179,7 @@ function setupProgressHandlers(runner: ReturnType<typeof createRunner>, quiet?: 
     logger.info(`🔄 Retry ${attempt}: ${task.target.name || task.target.id}`)
   })
 
-  runner.on('runComplete', () => {
-    logger.info(`🏁 Performance tests completed: ${completedTasks} passed, ${failedTasks} failed`)
+  runner.on('runComplete', (summary: RunSummary) => {
+    logger.info(`🏁 Performance tests completed: ${summary.completedTasks} passed, ${summary.failedTasks} failed`)
   })
-}
-
-/**
- * Convert runner results to display format
- */
-function convertRunnerResults(results: LighthouseResult[]): PerformanceResult[] {
-  return results.map((result) => ({
-    target: result.target,
-    profileName: result.profile.id,
-    metrics: result.metrics,
-    timestamp: result.timestamp.toISOString(),
-    url: result.target.url, // Runner doesn't have finalDisplayedUrl, use target URL
-  }))
-}
-
-function formatMetricWithThresholds(
-  value: number | undefined,
-  metricName: string,
-): { formatted: string; icon: string } {
-  if (value === undefined) {
-    return { formatted: 'N/A', icon: '⚪' }
-  }
-
-  let thresholds: { good: number; needsImprovement: number }
-  let unit = ''
-  let displayValue = value
-
-  switch (metricName) {
-    case 'lcp': // Largest Contentful Paint (ms)
-      thresholds = { good: 2500, needsImprovement: 4000 }
-      unit = 'ms'
-      break
-    case 'fcp': // First Contentful Paint (ms)
-      thresholds = { good: 1800, needsImprovement: 3000 }
-      unit = 'ms'
-      break
-    case 'cls': // Cumulative Layout Shift (score)
-      thresholds = { good: 0.1, needsImprovement: 0.25 }
-      displayValue = Math.round(value * 1000) / 1000 // Round to 3 decimal places
-      break
-    case 'fid': // First Input Delay (ms)
-      thresholds = { good: 100, needsImprovement: 300 }
-      unit = 'ms'
-      break
-    case 'inp': // Interaction to Next Paint (ms)
-      thresholds = { good: 200, needsImprovement: 500 }
-      unit = 'ms'
-      break
-    case 'tbt': // Total Blocking Time (ms)
-      thresholds = { good: 200, needsImprovement: 600 }
-      unit = 'ms'
-      break
-    case 'performanceScore': {
-      // Performance Score (0-100)
-      thresholds = { good: 90, needsImprovement: 50 }
-      // Performance score logic is reversed - higher is better
-      const perfIcon = value >= thresholds.good ? '🟢' : value >= thresholds.needsImprovement ? '🟡' : '🔴'
-      return { formatted: `${displayValue}`, icon: perfIcon }
-    }
-    default:
-      return { formatted: `${value}`, icon: '⚪' }
-  }
-
-  const icon = value <= thresholds.good ? '🟢' : value <= thresholds.needsImprovement ? '🟡' : '🔴'
-  const formatted = `${displayValue}${unit}`
-
-  return { formatted, icon }
-}
-
-function displaySummary(results: PerformanceResult[]): void {
-  console.log(`\n🎯 Performance Test Summary`)
-  console.log(`   Total tests run: ${results.length}`)
-
-  if (results.length === 0) {
-    console.log(`   No successful results to display`)
-    return
-  }
-
-  // Group by target for summary stats
-  const targetGroups = new Map<string | undefined, PerformanceResult[]>()
-
-  for (const result of results) {
-    const key = result.target.name
-    if (!targetGroups.has(key)) {
-      targetGroups.set(key, [])
-    }
-    targetGroups.get(key)!.push(result)
-  }
-
-  for (const [targetName, targetResults] of Array.from(targetGroups.entries())) {
-    console.log(`\n   📊 ${targetName}:`)
-
-    for (const result of targetResults) {
-      const { metrics } = result
-
-      console.log(`     Profile: ${result.profileName}`)
-      console.log(`     URL: ${result.url}`)
-
-      // Performance Score
-      const perfScore = formatMetricWithThresholds(metrics.performanceScore, 'performanceScore')
-      console.log(`       ${perfScore.icon} Performance: ${perfScore.formatted}`)
-
-      // Core Web Vitals
-      const lcp = formatMetricWithThresholds(metrics.lcp, 'lcp')
-      const cls = formatMetricWithThresholds(metrics.cls, 'cls')
-      const fcp = formatMetricWithThresholds(metrics.fcp, 'fcp')
-
-      console.log(`       ${lcp.icon} LCP: ${lcp.formatted}`)
-      console.log(`       ${cls.icon} CLS: ${cls.formatted}`)
-      console.log(`       ${fcp.icon} FCP: ${fcp.formatted}`)
-
-      // Other metrics (FID, INP, TBT) - only show if available
-      if (metrics.fid !== undefined) {
-        const fid = formatMetricWithThresholds(metrics.fid, 'fid')
-        console.log(`       ${fid.icon} FID: ${fid.formatted}`)
-      }
-
-      if (metrics.inp !== undefined) {
-        const inp = formatMetricWithThresholds(metrics.inp, 'inp')
-        console.log(`       ${inp.icon} INP: ${inp.formatted}`)
-      }
-
-      if (metrics.tbt !== undefined) {
-        const tbt = formatMetricWithThresholds(metrics.tbt, 'tbt')
-        console.log(`       ${tbt.icon} TBT: ${tbt.formatted}`)
-      }
-    }
-  }
 }

@@ -217,16 +217,8 @@ describe('run command', () => {
       const errors = capture.getErrors()
 
       expect(errors).toBe('')
-      expect(logs).toContain('Loading configuration...')
-      expect(logs).toContain('Running 2 targets with concurrency 2...')
-      expect(logs).toContain('🚀 Starting 2 performance test(s)') // 2 targets with default profile
-      expect(logs).toContain('⏳ Running: Homepage')
-      expect(logs).toContain('⏳ Running: About Page')
-      expect(logs).toContain('✅ Completed: Homepage')
-      expect(logs).toContain('✅ Completed: About Page')
-      expect(logs).toContain('🏁 Performance tests completed:')
-      expect(logs).toContain('🎯 Performance Test Summary')
-      expect(logs).toContain('Total tests run: 2')
+
+      expect(logs).toMatchSnapshot('run-all-targets-output')
 
       expect(jest.mocked(lighthouse)).toHaveBeenCalledTimes(2) // 2 targets with default profile
       expect(jest.mocked(launch)).toHaveBeenCalledTimes(2) // Chrome launched per task for our Runner
@@ -243,11 +235,8 @@ describe('run command', () => {
 
       const logs = capture.getLogs()
 
-      expect(logs).toContain('Running 1 targets with concurrency 2...')
-      expect(logs).toContain('🚀 Starting 1 performance test(s)') // Only 1 task for homepage with default profile
-      expect(logs).toContain('⏳ Running: Homepage')
+      expect(logs).toMatchSnapshot('run-specific-target-output')
       expect(logs).not.toContain('About Page')
-      expect(logs).toContain('Total tests run: 1')
 
       expect(jest.mocked(lighthouse)).toHaveBeenCalledTimes(1) // 1 target with default profile
     } finally {
@@ -263,11 +252,9 @@ describe('run command', () => {
 
       const logs = capture.getLogs()
 
-      expect(logs).toContain('Running 2 targets with concurrency 2...')
-      expect(logs).toContain('🚀 Starting 2 performance test(s)') // 2 targets with desktop profile
+      expect(logs).toMatchSnapshot('run-specific-profile-output')
       expect(logs).toContain('(desktop)')
       expect(logs).not.toContain('(mobile)')
-      expect(logs).toContain('Total tests run: 2')
 
       expect(jest.mocked(lighthouse)).toHaveBeenCalledTimes(2) // 2 targets × 1 profile
     } finally {
@@ -283,10 +270,8 @@ describe('run command', () => {
 
       const logs = capture.getLogs()
 
-      expect(logs).toContain('Running 1 targets with concurrency 2...')
-      expect(logs).toContain('🚀 Starting 1 performance test(s)')
+      expect(logs).toMatchSnapshot('run-target-profile-combination-output')
       expect(logs).toContain('⏳ Running: About Page (mobile)')
-      expect(logs).toContain('Total tests run: 1')
 
       expect(jest.mocked(lighthouse)).toHaveBeenCalledTimes(1)
     } finally {
@@ -309,36 +294,41 @@ describe('run command', () => {
 
       expect(errors).toBe('')
 
-      // In quiet mode, should output JSON - look for JSON array
-      const jsonMatch = logs.match(/\[[\s\S]*\]/)
+      // In quiet mode, should output JSON - look for JSON object
+      const jsonMatch = logs.match(/\{[\s\S]*\}/)
       expect(jsonMatch).toBeTruthy()
 
       if (jsonMatch) {
-        const results = JSON.parse(jsonMatch[0])
-        expect(Array.isArray(results)).toBe(true)
-        expect(results).toHaveLength(1)
-
-        const result = results[0]
-        expect(result).toMatchObject({
-          target: expect.objectContaining({
-            id: 'homepage',
-            name: 'Homepage',
-            url: 'https://example.com',
-          }),
-          profileName: 'desktop',
-          metrics: expect.objectContaining({
-            performanceScore: 95,
-            lcp: 1200,
-            cls: 0.05,
-          }),
-          timestamp: expect.any(String),
-          url: 'https://example.com',
+        const runSummary = JSON.parse(jsonMatch[0])
+        expect(runSummary).toMatchObject({
+          passed: true,
+          totalTasks: 1,
+          completedTasks: 1,
+          failedTasks: 0,
+          taskResults: expect.arrayContaining([
+            expect.objectContaining({
+              task: expect.objectContaining({
+                target: expect.objectContaining({
+                  id: 'homepage',
+                  name: 'Homepage',
+                  url: 'https://example.com',
+                }),
+              }),
+              lighthouseResult: expect.objectContaining({
+                metrics: expect.objectContaining({
+                  performanceScore: 95,
+                  lcp: 1200,
+                  cls: 0.05,
+                }),
+              }),
+            }),
+          ]),
         })
       }
 
       // Should not contain human-readable output in quiet mode (except the JSON)
       expect(logs).not.toContain('⏳ Running:')
-      expect(logs).not.toContain('🎯 Performance Test Summary')
+      expect(logs).not.toContain('✓ PASSED Performance Test Results')
     } finally {
       capture.restore()
       mockExit.mockRestore()
@@ -403,7 +393,7 @@ describe('run command', () => {
       expect(errors).toContain('Lighthouse audit failed for https://example.com: Chrome launch failed')
       expect(logs).toContain('About Page')
       expect(logs).toContain('✅ Completed: About Page')
-      expect(logs).toContain('Total tests run: 2') // Both tasks eventually succeeded after retry
+      expect(logs).toContain('Tasks: 3 total, 2 completed, 1 failed') // Includes the failed attempt plus retries
 
       expect(jest.mocked(lighthouse)).toHaveBeenCalledTimes(3) // Initial failure + 2 retries
     } finally {
@@ -514,15 +504,11 @@ describe('run command', () => {
 
       const logs = capture.getLogs()
 
-      expect(logs).toContain('📊 Homepage:')
-      expect(logs).toContain('📊 About Page:')
-      expect(logs).toContain('Profile: desktop')
-      expect(logs).toContain('URL: https://example.com')
-      expect(logs).toContain('🟢 Performance: 95') // Good score (>=90)
-      expect(logs).toContain('🔴 Performance: 45') // Bad score (<50)
-      expect(logs).toContain('🟢 LCP: 1200ms') // From mock data
-      expect(logs).toContain('🟢 CLS: 0.05') // From mock data
-      expect(logs).toContain('🟢 FCP: 800ms') // From mock data
+      expect(logs).toMatchSnapshot('run-multiple-targets-different-scores-output')
+      expect(logs).toContain('https://example.com')
+      expect(logs).toContain('https://example.com/about')
+      expect(logs).toContain('95')
+      expect(logs).toContain('45') // Both scores should be shown
     } finally {
       capture.restore()
     }
@@ -594,15 +580,12 @@ describe('run command', () => {
       expect(logs).toContain('🏁 Performance tests completed:')
 
       // Should include assertion results in output
-      expect(logs).toContain('📊 Homepage:')
-      expect(logs).toContain('Profile: desktop')
-      expect(logs).toContain('URL: https://example.com')
-
-      // Should show metrics (these come from our mock lighthouse result)
-      expect(logs).toContain('🟢 LCP: 1200ms')
-      expect(logs).toContain('🟢 CLS: 0.05')
-      expect(logs).toContain('🟢 Performance: 95')
-      expect(logs).toContain('🟢 FCP: 800ms')
+      // Normalize dynamic task IDs for consistent snapshots
+      const normalizedLogs = logs.replace(/homepage_desktop_\d+_[a-z0-9]+/g, 'homepage_desktop_TASK_ID')
+      expect(normalizedLogs).toMatchSnapshot('run-with-assertions-output')
+      expect(logs).toContain('https://example.com')
+      expect(logs).toContain('PASS')
+      expect(logs).toContain('95')
 
       expect(jest.mocked(lighthouse)).toHaveBeenCalledTimes(1)
       expect(jest.mocked(launch)).toHaveBeenCalledTimes(1)

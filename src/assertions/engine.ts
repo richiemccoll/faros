@@ -113,10 +113,7 @@ export class AssertionEngine extends EventEmitter {
   ): Promise<AssertionResult[]> {
     const results: AssertionResult[] = []
 
-    logger.debug('Evaluating metrics against thresholds', {
-      metricsCount: Object.keys(metrics).filter((key) => metrics[key as keyof NormalizedMetrics] !== undefined).length,
-      hasBaseline: !!baseline,
-    })
+    logger.debug('Evaluating metrics against thresholds')
 
     // Evaluate basic metric thresholds
     if (config.metrics) {
