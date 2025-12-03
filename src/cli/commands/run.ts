@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import type { CommandModule } from 'yargs'
 import { loadConfig } from '../../core/config'
 import { createRunner } from '../../core/runner'
@@ -109,7 +110,6 @@ async function runPerformanceTests(args: RunCommandArgs): Promise<void> {
       displaySummary(displayResults)
     } else {
       // In quiet mode, just output JSON results
-      // eslint-disable-next-line no-console
       console.log(JSON.stringify(displayResults, null, 2))
     }
   } catch (error) {
@@ -252,13 +252,10 @@ function formatMetricWithThresholds(
 }
 
 function displaySummary(results: PerformanceResult[]): void {
-  // eslint-disable-next-line no-console
   console.log(`\n🎯 Performance Test Summary`)
-  // eslint-disable-next-line no-console
   console.log(`   Total tests run: ${results.length}`)
 
   if (results.length === 0) {
-    // eslint-disable-next-line no-console
     console.log(`   No successful results to display`)
     return
   }
@@ -275,18 +272,16 @@ function displaySummary(results: PerformanceResult[]): void {
   }
 
   for (const [targetName, targetResults] of Array.from(targetGroups.entries())) {
-    // eslint-disable-next-line no-console
     console.log(`\n   📊 ${targetName}:`)
 
     for (const result of targetResults) {
       const { metrics } = result
 
-      // eslint-disable-next-line no-console
       console.log(`     Profile: ${result.profileName}`)
+      console.log(`     URL: ${result.url}`)
 
       // Performance Score
       const perfScore = formatMetricWithThresholds(metrics.performanceScore, 'performanceScore')
-      // eslint-disable-next-line no-console
       console.log(`       ${perfScore.icon} Performance: ${perfScore.formatted}`)
 
       // Core Web Vitals
@@ -294,29 +289,23 @@ function displaySummary(results: PerformanceResult[]): void {
       const cls = formatMetricWithThresholds(metrics.cls, 'cls')
       const fcp = formatMetricWithThresholds(metrics.fcp, 'fcp')
 
-      // eslint-disable-next-line no-console
       console.log(`       ${lcp.icon} LCP: ${lcp.formatted}`)
-      // eslint-disable-next-line no-console
       console.log(`       ${cls.icon} CLS: ${cls.formatted}`)
-      // eslint-disable-next-line no-console
       console.log(`       ${fcp.icon} FCP: ${fcp.formatted}`)
 
       // Other metrics (FID, INP, TBT) - only show if available
       if (metrics.fid !== undefined) {
         const fid = formatMetricWithThresholds(metrics.fid, 'fid')
-        // eslint-disable-next-line no-console
         console.log(`       ${fid.icon} FID: ${fid.formatted}`)
       }
 
       if (metrics.inp !== undefined) {
         const inp = formatMetricWithThresholds(metrics.inp, 'inp')
-        // eslint-disable-next-line no-console
         console.log(`       ${inp.icon} INP: ${inp.formatted}`)
       }
 
       if (metrics.tbt !== undefined) {
         const tbt = formatMetricWithThresholds(metrics.tbt, 'tbt')
-        // eslint-disable-next-line no-console
         console.log(`       ${tbt.icon} TBT: ${tbt.formatted}`)
       }
     }

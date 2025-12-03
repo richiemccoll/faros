@@ -517,6 +517,7 @@ describe('run command', () => {
       expect(logs).toContain('📊 Homepage:')
       expect(logs).toContain('📊 About Page:')
       expect(logs).toContain('Profile: desktop')
+      expect(logs).toContain('URL: https://example.com')
       expect(logs).toContain('🟢 Performance: 95') // Good score (>=90)
       expect(logs).toContain('🔴 Performance: 45') // Bad score (<50)
       expect(logs).toContain('🟢 LCP: 1200ms') // From mock data
@@ -595,6 +596,7 @@ describe('run command', () => {
       // Should include assertion results in output
       expect(logs).toContain('📊 Homepage:')
       expect(logs).toContain('Profile: desktop')
+      expect(logs).toContain('URL: https://example.com')
 
       // Should show metrics (these come from our mock lighthouse result)
       expect(logs).toContain('🟢 LCP: 1200ms')
