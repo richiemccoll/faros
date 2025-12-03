@@ -1,7 +1,8 @@
 /* eslint-disable no-console */
 
 import { ConfigLoadError, ConfigValidationError } from '../core/config/errors'
-import { loadConfig } from '../core'
+import { loadConfig, ProfileRef } from '../core'
+import { ProfileRegistry } from '../lighthouse'
 import type { BaseArgs, PrintConfigArgs } from './types'
 import type { CommandModule } from 'yargs'
 
@@ -24,7 +25,30 @@ export const printConfigCommand: CommandModule<BaseArgs, PrintConfigArgs> = {
         configPath: argv.config,
       })
 
-      console.log(JSON.stringify(config, null, 2))
+      const profileRegistry = new ProfileRegistry(config.profiles || {})
+      const resolvedProfiles: Record<string, ProfileRef> = {}
+      const profileIds = new Set([config.defaultProfile])
+
+      config.targets.forEach((target) => {
+        if (target.profile) {
+          profileIds.add(target.profile)
+        }
+      })
+
+      profileIds.forEach((profileId) => {
+        try {
+          resolvedProfiles[profileId] = profileRegistry.getProfile(profileId)
+        } catch (error) {
+          console.error(`❌ Failed to resolve profile "${profileId}":`, (error as Error).message)
+        }
+      })
+
+      const output = {
+        ...config,
+        _resolvedProfiles: resolvedProfiles,
+      }
+
+      console.log(JSON.stringify(output, null, 2))
 
       if (!argv.quiet) {
         console.error('✅ Configuration is valid')

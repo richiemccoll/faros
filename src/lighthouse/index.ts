@@ -1,7 +1,2 @@
-/**
- * Lighthouse integration module
- * Handles running Lighthouse audits and processing results
- */
-
-// Placeholder - will be implemented in Phase 2
-export const LIGHTHOUSE_MODULE = 'lighthouse'
+export { ProfileRegistry, ProfileRegistryError } from './profile-registry'
+export { builtInProfiles } from './profiles'

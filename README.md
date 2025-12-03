@@ -51,7 +51,7 @@ faros print-config
 Shows the resolved and validated configuration after merging all sources (file + environment + CLI overrides).
 
 ```bash
-# Show resolved configuration
+# Show resolved configuration with resolved profiles
 faros print-config
 
 # Load specific config file
@@ -67,18 +67,47 @@ faros print-config --quiet
 {
   "targets": [
     {
-      "id": "homepage",
+      "id": "homepage", 
       "url": "https://example.com",
       "tags": ["critical"]
+    },
+    {
+      "id": "mobile-checkout",
+      "url": "https://example.com/checkout", 
+      "profile": "customMobile"
     }
   ],
-  "defaultProfile": "default",
-  "concurrency": 1,
-  "maxRetries": 2,
-  "assertions": {
-    "metrics": {
-      "lcp": { "max": 2500 },
-      "performanceScore": { "min": 90 }
+  "profiles": {
+    "customMobile": {
+      "id": "customMobile",
+      "extends": "mobileSlow3G",
+      "lighthouseConfig": {
+        "settings": { "onlyCategories": ["performance"] }
+      }
+    }
+  },
+  "defaultProfile": "desktop",
+  "_resolvedProfiles": {
+    "desktop": {
+      "id": "desktop",
+      "name": "Desktop Fast", 
+      "lighthouseConfig": {
+        "settings": {
+          "emulatedFormFactor": "desktop",
+          "throttling": { "rttMs": 40, "throughputKbps": 10240 }
+        }
+      }
+    },
+    "customMobile": {
+      "id": "customMobile", 
+      "name": "Custom Mobile Profile",
+      "lighthouseConfig": {
+        "settings": {
+          "emulatedFormFactor": "mobile",
+          "throttling": { "rttMs": 150, "throughputKbps": 1638.4 },
+          "onlyCategories": ["performance"]
+        }
+      }
     }
   }
 }
@@ -166,6 +195,58 @@ Configuration is merged in this order (later sources override earlier ones):
 2. **Configuration file** (`perf.config.*`)
 3. **Environment variables** (`PERF_*`)
 4. **CLI arguments** (highest priority)
+
+## Lighthouse Profiles
+
+Faros includes a built-in ProfileRegistry that provides pre-configured Lighthouse profiles and supports custom profile inheritance.
+
+### Built-in Profiles
+
+| Profile ID | Description | Use Case |
+|------------|-------------|----------|
+| `default` | Balanced desktop settings | General purpose testing |
+| `desktop` | Fast desktop connection | Desktop optimization |
+| `mobileSlow3G` | Mobile with slow 3G throttling | Mobile performance testing |
+| `ciMinimal` | Minimal config for CI/CD | Faster automated testing |
+
+### Profile Inheritance
+
+Custom profiles can extend built-in profiles using the `extends` property:
+
+```json
+{
+  "profiles": {
+    "customMobile": {
+      "id": "customMobile",
+      "extends": "mobileSlow3G",
+      "name": "Custom Mobile Profile",
+      "lighthouseConfig": {
+        "settings": {
+          "onlyCategories": ["performance"],
+          "skipAudits": ["unused-css-rules"]
+        }
+      }
+    }
+  }
+}
+```
+
+**Inheritance Rules:**
+- Base profile settings are preserved
+- Custom settings are deep-merged over base settings
+- Arrays are replaced entirely (not merged)
+- Circular dependencies are detected and prevented
+- Missing base profiles throw validation errors
+
+### Profile Resolution
+
+Use the `print-config` command to see how profiles are resolved:
+
+```bash
+faros print-config
+```
+
+The `_resolvedProfiles` section shows the final configuration for each profile after inheritance processing.
 
 ### Example Configurations
 

@@ -194,5 +194,77 @@ describe('faros CLI Integration Tests', () => {
       expect(outputConfig.concurrency).toBe(8)
       expect(outputConfig.timeout).toBe(45000)
     })
+
+    it('should show resolved profiles in print-config output', async () => {
+      const configWithInheritance = {
+        targets: [
+          {
+            id: 'desktop-target',
+            url: 'https://desktop.example.com',
+            // Uses defaultProfile (desktop)
+          },
+          {
+            id: 'mobile-target',
+            url: 'https://mobile.example.com',
+            profile: 'enhancedMobile',
+          },
+          {
+            id: 'ci-target',
+            url: 'https://ci.example.com',
+            profile: 'ciMinimal', // Built-in profile
+          },
+        ],
+        profiles: {
+          enhancedMobile: {
+            id: 'enhancedMobile',
+            name: 'Enhanced Mobile Testing',
+            extends: 'mobileSlow3G', // Extends built-in
+            lighthouseConfig: {
+              settings: {
+                onlyCategories: ['performance', 'accessibility'],
+                customTimeout: 60000,
+              },
+            },
+          },
+        },
+        defaultProfile: 'desktop',
+      }
+
+      await writeFile(join(testDir, 'perf.config.json'), JSON.stringify(configWithInheritance, null, 2))
+
+      const { stdout } = await execFileAsync('node', [cliPath, 'print-config'], {
+        cwd: testDir,
+      })
+
+      const config = JSON.parse(stdout.trim())
+
+      expect(config._resolvedProfiles).toBeDefined()
+
+      // 1. Default profile should be resolved
+      expect(config._resolvedProfiles.desktop).toBeDefined()
+      expect(config._resolvedProfiles.desktop.id).toBe('desktop')
+      expect(config._resolvedProfiles.desktop.name).toBe('Desktop Fast')
+
+      // 2. Built-in profile used by target should be resolved
+      expect(config._resolvedProfiles.ciMinimal).toBeDefined()
+      expect(config._resolvedProfiles.ciMinimal.id).toBe('ciMinimal')
+      expect(config._resolvedProfiles.ciMinimal.name).toBe('CI Minimal')
+
+      // 3. Custom profile with inheritance should be fully resolved
+      expect(config._resolvedProfiles.enhancedMobile).toBeDefined()
+      const enhancedProfile = config._resolvedProfiles.enhancedMobile
+      expect(enhancedProfile.id).toBe('enhancedMobile')
+      expect(enhancedProfile.name).toBe('Enhanced Mobile Testing')
+
+      // Verify inheritance worked - should have base mobile settings + custom overrides
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const settings = (enhancedProfile.lighthouseConfig as any)?.settings
+      expect(settings).toBeDefined()
+      expect(settings.emulatedFormFactor).toBe('mobile') // From mobileSlow3G base
+      expect(settings.customTimeout).toBe(60000) // From custom profile
+      expect(settings.onlyCategories).toEqual(['performance', 'accessibility']) // From custom profile
+
+      expect(Object.keys(config._resolvedProfiles)).toEqual(['desktop', 'enhancedMobile', 'ciMinimal'])
+    })
   })
 })
