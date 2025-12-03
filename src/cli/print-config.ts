@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 
 import { ConfigLoadError, ConfigValidationError } from '../core/config/errors'
-import { loadConfig } from 'src/core'
+import { loadConfig } from '../core'
 import type { BaseArgs, PrintConfigArgs } from './types'
 import type { CommandModule } from 'yargs'
 
