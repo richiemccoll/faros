@@ -23,6 +23,7 @@ jest.mock('../../logger', () => ({
     info: jest.fn(),
     error: jest.fn(),
     warn: jest.fn(),
+    debug: jest.fn(),
   },
 }))
 
@@ -39,6 +40,7 @@ const captureOutput = () => {
   mockedLogger.info.mockClear()
   mockedLogger.error.mockClear()
   mockedLogger.warn.mockClear()
+  mockedLogger.debug.mockClear()
 
   console.log = (...args: unknown[]) => {
     logs.push(args.map(String).join(' '))
@@ -63,6 +65,11 @@ const captureOutput = () => {
     return undefined as never
   })
 
+  jest.spyOn(mockedLogger, 'debug').mockImplementation((message: unknown, ...args: unknown[]) => {
+    logs.push([message, ...args].map(String).join(' '))
+    return undefined as never
+  })
+
   return {
     getLogs: () => logs.join('\n'),
     getErrors: () => errors.join('\n'),
@@ -73,6 +80,7 @@ const captureOutput = () => {
       mockedLogger.info.mockReset()
       mockedLogger.error.mockReset()
       mockedLogger.warn.mockReset()
+      mockedLogger.debug.mockReset()
     },
   }
 }
@@ -139,6 +147,7 @@ describe('run command', () => {
     mockedLogger.info.mockReset()
     mockedLogger.error.mockReset()
     mockedLogger.warn.mockReset()
+    mockedLogger.debug.mockReset()
 
     // Setup chrome-launcher mock to return a valid chrome instance
     jest.mocked(launch).mockResolvedValue({
@@ -513,6 +522,88 @@ describe('run command', () => {
       expect(logs).toContain('🟢 LCP: 1200ms') // From mock data
       expect(logs).toContain('🟢 CLS: 0.05') // From mock data
       expect(logs).toContain('🟢 FCP: 800ms') // From mock data
+    } finally {
+      capture.restore()
+    }
+  })
+
+  it('should run assertions when configured and include assertion results', async () => {
+    // Create a config with assertions
+    await writeFile(
+      join(TEST_DIR, 'perf-with-assertions.config.json'),
+      JSON.stringify({
+        targets: [
+          {
+            id: 'homepage',
+            name: 'Homepage',
+            url: 'https://example.com',
+            tags: ['main'],
+          },
+        ],
+        profiles: {
+          desktop: {
+            id: 'desktop',
+            extends: 'default',
+          },
+        },
+        concurrency: 1,
+        maxRetries: 1,
+        timeout: 30000,
+        defaultProfile: 'desktop',
+        plugins: [],
+        output: {
+          dir: './test-results',
+          formats: ['cli'],
+          includeRawLighthouse: false,
+        },
+        assertions: {
+          global: {
+            metrics: {
+              lcp: { max: 2000 }, // Should pass (mock returns 1200ms)
+              cls: { max: 0.1 }, // Should pass (mock returns 0.05)
+              performanceScore: { min: 90 }, // Should pass (mock returns 95)
+            },
+          },
+          byTag: {
+            main: {
+              metrics: {
+                fcp: { max: 1000 }, // Should pass (mock returns 800ms)
+              },
+            },
+          },
+        },
+      }),
+    )
+
+    const capture = captureOutput()
+
+    try {
+      await runCli(['run', '--config', 'perf-with-assertions.config.json'])
+
+      const logs = capture.getLogs()
+      const errors = capture.getErrors()
+
+      // Should run successfully
+      expect(errors).toBe('')
+      expect(logs).toContain('Loading configuration...')
+      expect(logs).toContain('Running 1 targets with concurrency 1...')
+      expect(logs).toContain('🚀 Starting 1 performance test(s)')
+      expect(logs).toContain('⏳ Running: Homepage')
+      expect(logs).toContain('✅ Completed: Homepage')
+      expect(logs).toContain('🏁 Performance tests completed:')
+
+      // Should include assertion results in output
+      expect(logs).toContain('📊 Homepage:')
+      expect(logs).toContain('Profile: desktop')
+
+      // Should show metrics (these come from our mock lighthouse result)
+      expect(logs).toContain('🟢 LCP: 1200ms')
+      expect(logs).toContain('🟢 CLS: 0.05')
+      expect(logs).toContain('🟢 Performance: 95')
+      expect(logs).toContain('🟢 FCP: 800ms')
+
+      expect(jest.mocked(lighthouse)).toHaveBeenCalledTimes(1)
+      expect(jest.mocked(launch)).toHaveBeenCalledTimes(1)
     } finally {
       capture.restore()
     }

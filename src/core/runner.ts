@@ -1,19 +1,21 @@
 import { EventEmitter } from 'events'
 import { Task, LighthouseResult } from './types/execution'
 import { Target, ProfileRef, PerfConfig } from './types'
+import { AssertionReport } from './types/assertions'
 import { Scheduler, createScheduler, SchedulerConfig } from './scheduler'
 import { LighthouseLauncher, createLighthouseLauncher } from '../lighthouse/launcher'
 import { MetricExtractor, createMetricExtractor } from '../lighthouse/metric-extractor'
 import { ProfileRegistry } from '../lighthouse/profile-registry'
+import { AssertionEngine, createAssertionEngine, AssertionContext } from '../assertions/engine'
 import { logger } from '../logger'
 
 export interface RunnerEvents {
   runStart: (taskCount: number) => void
   taskStart: (task: Task) => void
-  taskComplete: (result: LighthouseResult) => void
+  taskComplete: (result: LighthouseResult, assertions: AssertionReport) => void
   taskFailed: (task: Task, error: Error, willRetry: boolean) => void
   taskRetry: (task: Task, attempt: number) => void
-  runComplete: (results: LighthouseResult[]) => void
+  runComplete: (results: LighthouseResult[], assertionReports: AssertionReport[]) => void
   runError: (error: Error) => void
 }
 
@@ -25,6 +27,7 @@ export class Runner extends EventEmitter {
   private lighthouseLauncher: LighthouseLauncher
   private metricExtractor: MetricExtractor
   private profileRegistry: ProfileRegistry
+  private assertionEngine: AssertionEngine
   private config: PerfConfig
 
   constructor(config: PerfConfig) {
@@ -49,6 +52,8 @@ export class Runner extends EventEmitter {
     })
 
     this.profileRegistry = new ProfileRegistry(config.profiles)
+
+    this.assertionEngine = createAssertionEngine()
 
     this.setupEventForwarding()
 
@@ -92,16 +97,10 @@ export class Runner extends EventEmitter {
   private async executeTask(task: Task): Promise<LighthouseResult> {
     const startTime = Date.now()
 
-    // Create a new launcher instance for this task to avoid concurrency issues
-    const taskLauncher = createLighthouseLauncher({
-      headless: true,
-      logLevel: 'error',
-    })
-
     try {
       const profile = this.profileRegistry.getProfile(task.profile.id)
 
-      const lighthouseResult = await taskLauncher.run(task.target, profile)
+      const lighthouseResult = await this.lighthouseLauncher.run(task.target, profile)
 
       const metrics = this.metricExtractor.extract(lighthouseResult.lhr)
 
@@ -115,6 +114,10 @@ export class Runner extends EventEmitter {
         raw: this.config.output?.includeRawLighthouse ? lighthouseResult.lhr : undefined,
       }
 
+      if (this.config.assertions) {
+        await this.evaluateAssertions(task, result)
+      }
+
       return result
     } catch (error) {
       throw new Error(
@@ -122,9 +125,35 @@ export class Runner extends EventEmitter {
           error instanceof Error ? error.message : String(error)
         }`,
       )
-    } finally {
-      // Always cleanup the task-specific launcher
-      await taskLauncher.cleanup()
+    }
+  }
+
+  /**
+   * Evaluate assertions for a completed task and emit assertion events
+   */
+  private async evaluateAssertions(task: Task, lighthouseResult: LighthouseResult): Promise<void> {
+    try {
+      const context: AssertionContext = {
+        task,
+        lighthouseResult,
+        config: this.config.assertions!,
+        baseline: undefined, // TODO: Add baseline provider support
+      }
+
+      const assertionReport = await this.assertionEngine.evaluate(context)
+
+      logger.debug(
+        `Assertions evaluated for task ${task.id}: ${assertionReport.passed ? 'PASSED' : 'FAILED'} ` +
+          `(${assertionReport.results.length - assertionReport.failureCount}/${assertionReport.results.length} passed)`,
+      )
+
+      // For now, we'll store the assertion report in the result object for access by reporting
+      // In a future version, we might emit this as a separate event
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(lighthouseResult as any).assertionReport = assertionReport
+    } catch (error) {
+      logger.error(`Assertion evaluation failed for task ${task.id}:`, error)
+      // Don't throw - we want the lighthouse result to still be available even if assertions fail
     }
   }
 
