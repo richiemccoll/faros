@@ -12,6 +12,7 @@ const TEST_DIR = join(process.cwd(), 'test-configs-run')
 // Mock chrome-launcher - return a mock chrome instance
 jest.mock('chrome-launcher', () => ({
   launch: jest.fn(),
+  killAll: jest.fn(),
 }))
 
 // Mock lighthouse - return realistic lighthouse result structure

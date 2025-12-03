@@ -1,5 +1,6 @@
 /* eslint-disable no-console */
 import type { CommandModule } from 'yargs'
+import { killAll } from 'chrome-launcher'
 import { loadConfig } from '../../core/config'
 import { createRunner } from '../../core/runner'
 import { CLIReporter } from '../../reporting'
@@ -107,6 +108,9 @@ async function runPerformanceTests(args: RunCommandArgs): Promise<void> {
       // In quiet mode, output JSON results
       console.log(JSON.stringify(runSummary, null, 2))
     }
+
+    // ensure we kill any Chrome instances
+    await killAll()
 
     // Exit with error code if any tasks failed (but not in test environment)
     if (!runSummary.passed && process.env.NODE_ENV !== 'test') {
