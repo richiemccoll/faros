@@ -92,10 +92,16 @@ export class Runner extends EventEmitter {
   private async executeTask(task: Task): Promise<LighthouseResult> {
     const startTime = Date.now()
 
+    // Create a new launcher instance for this task to avoid concurrency issues
+    const taskLauncher = createLighthouseLauncher({
+      headless: true,
+      logLevel: 'error',
+    })
+
     try {
       const profile = this.profileRegistry.getProfile(task.profile.id)
 
-      const lighthouseResult = await this.lighthouseLauncher.run(task.target, profile)
+      const lighthouseResult = await taskLauncher.run(task.target, profile)
 
       const metrics = this.metricExtractor.extract(lighthouseResult.lhr)
 
@@ -116,6 +122,9 @@ export class Runner extends EventEmitter {
           error instanceof Error ? error.message : String(error)
         }`,
       )
+    } finally {
+      // Always cleanup the task-specific launcher
+      await taskLauncher.cleanup()
     }
   }
 

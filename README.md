@@ -4,7 +4,8 @@
 
 ## Features
 
-- **Multi-target Performance Testing** - Test multiple URLs with different configurations
+- **Concurrent Performance Testing** - Test multiple URLs simultaneously with configurable concurrency
+- **Intelligent Retry Logic** - Automatic retry with exponential backoff for failed tests
 - **Multiple Report Formats** - CLI, JSON, HTML, and JUnit output formats
 - **Extensible Plugin System** - Custom plugins for notifications, baseline comparison, and more
 
@@ -72,31 +73,18 @@ faros run --quiet
 ```
 ℹ Loading configuration...
 ℹ Loaded config with 2 targets and 1 custom profiles
-ℹ Running 2 targets with 2 profiles...
-
-Testing target: homepage (https://example.com)
-ℹ   Running with profile: desktop
-    Results for homepage (desktop):
-      Performance Score: 95
-      LCP: 1247ms
-      CLS: 0.02
-      FID: 12ms
-      INP: N/A
-      TBT: 45ms
-      FCP: 892ms
-
-ℹ   Running with profile: mobile
-    Results for homepage (mobile):
-      Performance Score: 78
-      LCP: 2156ms
-      CLS: 0.08
-      FID: 89ms
-      INP: N/A
-      TBT: 234ms
-      FCP: 1523ms
+ℹ Running 2 targets with concurrency 2...
+ℹ Starting performance test run with 2 task(s)
+ℹ 🚀 Starting 2 performance test(s)
+ℹ ⏳ Running: Homepage (desktop)
+ℹ ⏳ Running: Checkout (desktop)
+ℹ ✅ Completed: Homepage 🟢 Score: 95
+ℹ ✅ Completed: Checkout 🟡 Score: 78
+ℹ Performance test run completed. 2 result(s)
+ℹ 🏁 Performance tests completed: 2 passed, 0 failed
 
 🎯 Performance Test Summary
-   Total tests run: 4
+   Total tests run: 2
 
    📊 homepage:
      🟢 desktop: 95 (Performance Score)
@@ -213,9 +201,9 @@ interface PerfConfig {
   defaultProfile?: string
 
   // Optional: Execution settings
-  concurrency?: number // Default: 1
-  maxRetries?: number // Default: 2
-  timeout?: number // Default: 30000ms
+  concurrency?: number // Default: 1 - Number of parallel tasks
+  maxRetries?: number // Default: 2 - Failed task retry attempts
+  timeout?: number // Default: 30000ms - Per-task timeout
 
   // Optional: Performance assertions
   assertions?: AssertionConfig
@@ -369,6 +357,8 @@ The `_resolvedProfiles` section shows the final configuration for each profile a
     }
   },
   "concurrency": 2,
+  "maxRetries": 1,
+  "timeout": 45000,
   "assertions": {
     "metrics": {
       "lcp": { "max": 2500 },
@@ -433,26 +423,6 @@ pnpm test src/core/config.test.ts
 
 # Run integration tests
 pnpm test src/cli/cli.integration.test.ts
-```
-
-### Architecture
-
-Faros follows a modular architecture with clear separation of concerns:
-
-```
-src/
-├── core/           # Core functionality
-│   ├── types/      # TypeScript definitions and Zod schemas
-│   ├── config.ts   # Configuration loading and validation
-│   └── scheduler.ts # Task scheduling (planned)
-├── lighthouse/     # Lighthouse integration (planned)
-├── assertions/     # Performance assertions (planned)
-├── reporting/      # Report generation (planned)
-├── plugins/        # Plugin system (planned)
-└── cli/           # Command-line interface
-    ├── commands.ts # Command exports
-    ├── cli.ts     # Main CLI setup
-    └── print-config.ts # Configuration validation command
 ```
 
 ## License
