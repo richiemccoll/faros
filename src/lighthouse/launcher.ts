@@ -94,7 +94,15 @@ export class LighthouseLauncher {
     const tmpFile = path.join(tmpDir, `${randomUUID()}.json`)
     const maxTimeoutMs = 45000
 
-    const workerPath = path.join(__dirname, 'lighthouse-worker.js')
+    // Handle both development and production paths
+    let workerPath: string
+    if (__dirname.includes('/dist/')) {
+      // Production build - from dist/bin to dist/src/lighthouse
+      workerPath = path.join(__dirname, '../src/lighthouse/lighthouse-worker')
+    } else {
+      // Development - same directory as this file
+      workerPath = path.join(__dirname, 'lighthouse-worker')
+    }
 
     await new Promise<void>((resolve, reject) => {
       const child = fork(workerPath, [tmpFile], {

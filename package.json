@@ -1,9 +1,9 @@
 {
   "name": "faros",
   "description": "Modern performance testing framework powered by Lighthouse with comprehensive configuration management and flexible reporting.",
-  "private": true,
   "version": "0.0.1",
   "type": "module",
+  "main": "dist/bin/run.js",
   "bin": {
     "faros": "./bin/run"
   },
@@ -17,7 +17,23 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/richiemccoll/faros.git"
+    "url": "git+https://github.com/richiemccoll/faros.git"
+  },
+  "bugs": {
+    "url": "https://github.com/richiemccoll/faros/issues"
+  },
+  "homepage": "https://github.com/richiemccoll/faros#readme",
+  "keywords": [
+    "lighthouse",
+    "performance",
+    "testing",
+    "web-performance",
+    "cli",
+    "automation",
+    "metrics"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
   },
   "scripts": {
     "build": "tsup-node",
@@ -35,6 +51,7 @@
     "test": "jest",
     "test:watch": "jest --watchAll",
     "prepare": "husky",
+    "prepublishOnly": "npm run build",
     "release": "semantic-release"
   },
   "author": "Richie Mccoll",
