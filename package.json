@@ -1,7 +1,7 @@
 {
   "name": "faros",
   "description": "Modern performance testing framework powered by Lighthouse with comprehensive configuration management and flexible reporting.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "module",
   "main": "dist/bin/run.js",
   "bin": {
