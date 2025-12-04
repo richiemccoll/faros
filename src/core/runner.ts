@@ -48,6 +48,7 @@ export class Runner extends EventEmitter {
     this.lighthouseLauncher = createLighthouseLauncher({
       headless: true, // Always run in headless mode by default for performance and CI compatibility
       logLevel: 'error', // Keep quiet during runs
+      timeout: config.timeout, // Use timeout from config
     })
 
     this.metricExtractor = createMetricExtractor({

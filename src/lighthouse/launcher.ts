@@ -37,6 +37,7 @@ export interface LaunchOptions {
   chromeFlags?: string[]
   logLevel?: 'silent' | 'error' | 'info' | 'verbose'
   tempDir?: string
+  timeout?: number
 }
 
 export class LighthouseLauncher {
@@ -50,6 +51,7 @@ export class LighthouseLauncher {
       chromeFlags: ['--no-sandbox', '--disable-dev-shm-usage'],
       logLevel: 'error',
       tempDir: path.join(os.tmpdir(), 'faros-lighthouse'),
+      timeout: 60000, // Default 60 seconds to match PerfConfig default
       ...options,
     }
 
@@ -92,7 +94,7 @@ export class LighthouseLauncher {
     const tmpDir = path.join(os.tmpdir(), 'lh-worker')
     await mkdir(tmpDir, { recursive: true })
     const tmpFile = path.join(tmpDir, `${randomUUID()}.json`)
-    const maxTimeoutMs = 45000
+    const maxTimeoutMs = this.options.timeout
 
     // Handle both development and production paths
     let workerPath: string
