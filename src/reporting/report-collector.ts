@@ -16,7 +16,7 @@ export interface TaskResult {
  * and provides methods to retrieve aggregated summaries and raw data
  */
 export class ReportCollector {
-  private taskResults: TaskResult[] = []
+  private taskResults: Map<string, TaskResult> = new Map()
   private runStartTime: Date
   private runEndTime?: Date
 
@@ -25,7 +25,8 @@ export class ReportCollector {
   }
 
   addTaskResult(taskResult: TaskResult): void {
-    this.taskResults.push(taskResult)
+    // Only keep the latest result for each task ID (handles retries)
+    this.taskResults.set(taskResult.task.id, taskResult)
   }
 
   completeRun(): void {
@@ -39,28 +40,29 @@ export class ReportCollector {
     const endTime = this.runEndTime || new Date()
     const duration = endTime.getTime() - this.runStartTime.getTime()
 
-    const completedTasks = this.taskResults.filter((result) => result.lighthouseResult && !result.error).length
+    const taskResultsArray = Array.from(this.taskResults.values())
+    const completedTasks = taskResultsArray.filter((result) => result.lighthouseResult && !result.error).length
 
-    const failedTasks = this.taskResults.filter(
+    const failedTasks = taskResultsArray.filter(
       (result) => result.error || (result.assertionReport && !result.assertionReport.passed),
     ).length
 
     // Run passes if all tasks completed and all assertions passed
     const passed =
-      this.taskResults.length > 0 &&
+      this.taskResults.size > 0 &&
       failedTasks === 0 &&
-      completedTasks === this.taskResults.length &&
-      this.taskResults.every((result) => !result.assertionReport || result.assertionReport.passed)
+      completedTasks === this.taskResults.size &&
+      taskResultsArray.every((result) => !result.assertionReport || result.assertionReport.passed)
 
     return {
       startTime: this.runStartTime,
       endTime,
       duration,
-      totalTasks: this.taskResults.length,
+      totalTasks: this.taskResults.size,
       completedTasks,
       failedTasks,
       passed,
-      taskResults: this.taskResults.map((result) => ({
+      taskResults: taskResultsArray.map((result) => ({
         task: result.task,
         lighthouseResult: result.lighthouseResult,
         assertionReport: result.assertionReport,
@@ -70,32 +72,32 @@ export class ReportCollector {
   }
 
   getRawResults(): TaskResult[] {
-    return [...this.taskResults]
+    return Array.from(this.taskResults.values())
   }
 
   getFailedResults(): TaskResult[] {
-    return this.taskResults.filter(
+    return Array.from(this.taskResults.values()).filter(
       (result) => result.error || (result.assertionReport && !result.assertionReport.passed),
     )
   }
 
   getPassedResults(): TaskResult[] {
-    return this.taskResults.filter(
+    return Array.from(this.taskResults.values()).filter(
       (result) =>
         result.lighthouseResult && !result.error && (!result.assertionReport || result.assertionReport.passed),
     )
   }
 
   getResultsByTag(tag: string): TaskResult[] {
-    return this.taskResults.filter((result) => result.task.target.tags?.includes(tag))
+    return Array.from(this.taskResults.values()).filter((result) => result.task.target.tags?.includes(tag))
   }
 
   isEmpty(): boolean {
-    return this.taskResults.length === 0
+    return this.taskResults.size === 0
   }
 
   clear(): void {
-    this.taskResults = []
+    this.taskResults.clear()
     this.runStartTime = new Date()
     this.runEndTime = undefined
   }

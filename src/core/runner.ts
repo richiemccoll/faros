@@ -126,6 +126,11 @@ export class Runner extends EventEmitter {
 
       const metrics = this.metricExtractor.extract(lighthouseResult.lhr)
 
+      // Validate that we got usable metrics - if not, treat as a failure to trigger retry
+      if (!this.metricExtractor.validateMetrics(metrics) || metrics.performanceScore === undefined) {
+        throw new Error('no usable metrics (N/A result)')
+      }
+
       const result: LighthouseResult = {
         taskId: task.id,
         target: task.target,

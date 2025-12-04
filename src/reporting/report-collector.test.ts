@@ -141,18 +141,18 @@ describe('ReportCollector', () => {
   })
 
   it('should filter results by tag', () => {
-    const target1 = { ...createMockTarget(), tags: ['home', 'critical'] }
-    const target2 = { ...createMockTarget(), tags: ['checkout', 'critical'] }
+    const target1 = { ...createMockTarget(), id: 'target-1', tags: ['home', 'critical'] }
+    const target2 = { ...createMockTarget(), id: 'target-2', tags: ['checkout', 'critical'] }
 
     const taskResult1: TaskResult = {
-      task: { ...createMockTask(), target: target1 },
-      lighthouseResult: createMockLighthouseResult(),
+      task: { ...createMockTask(), id: 'task-1', target: target1 },
+      lighthouseResult: { ...createMockLighthouseResult(), taskId: 'task-1', target: target1 },
       startTime: new Date(),
     }
 
     const taskResult2: TaskResult = {
-      task: { ...createMockTask(), target: target2 },
-      lighthouseResult: createMockLighthouseResult(),
+      task: { ...createMockTask(), id: 'task-2', target: target2 },
+      lighthouseResult: { ...createMockLighthouseResult(), taskId: 'task-2', target: target2 },
       startTime: new Date(),
     }
 
@@ -178,5 +178,54 @@ describe('ReportCollector', () => {
 
     collector.clear()
     expect(collector.isEmpty()).toBe(true)
+  })
+
+  it('should deduplicate retried tasks by keeping only the latest result', () => {
+    const task = createMockTask()
+
+    // First attempt - failed
+    const firstAttempt: TaskResult = {
+      task: { ...task, attempt: 1 },
+      error: 'First attempt failed',
+      startTime: new Date(Date.now() - 2000),
+      endTime: new Date(Date.now() - 1000),
+    }
+
+    // Second attempt - also failed
+    const secondAttempt: TaskResult = {
+      task: { ...task, attempt: 2 },
+      error: 'Second attempt failed',
+      startTime: new Date(Date.now() - 1000),
+      endTime: new Date(Date.now() - 500),
+    }
+
+    // Third attempt - successful
+    const thirdAttempt: TaskResult = {
+      task: { ...task, attempt: 3 },
+      lighthouseResult: createMockLighthouseResult(),
+      startTime: new Date(Date.now() - 500),
+      endTime: new Date(),
+    }
+
+    // Add all attempts
+    collector.addTaskResult(firstAttempt)
+    collector.addTaskResult(secondAttempt)
+    collector.addTaskResult(thirdAttempt)
+
+    // Should only have one result (the latest one)
+    const results = collector.getRawResults()
+    expect(results).toHaveLength(1)
+
+    const result = results[0]!
+    expect(result.task.attempt).toBe(3)
+    expect(result.lighthouseResult).toBeDefined()
+    expect(result.error).toBeUndefined()
+
+    // Summary should reflect only the latest result
+    const summary = collector.getSummary()
+    expect(summary.totalTasks).toBe(1)
+    expect(summary.completedTasks).toBe(1)
+    expect(summary.failedTasks).toBe(0)
+    expect(summary.passed).toBe(true)
   })
 })

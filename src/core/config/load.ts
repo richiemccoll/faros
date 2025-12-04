@@ -17,7 +17,7 @@ function createDefaultConfig(): PerfConfig {
     defaultProfile: 'default',
     concurrency: 1,
     maxRetries: 2,
-    timeout: 30000,
+    timeout: 60000,
     plugins: [],
   }
 }

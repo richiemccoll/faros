@@ -176,8 +176,8 @@ export class LighthouseLauncher {
     const config = {
       extends: 'lighthouse:default',
       settings: {
-        maxWaitForFcp: 30000,
-        maxWaitForLoad: 45000,
+        maxWaitForFcp: 60000,
+        maxWaitForLoad: 60000,
         formFactor: profileSettings?.emulatedFormFactor || 'desktop',
         throttling: profileSettings?.throttling || {
           rttMs: 40,
