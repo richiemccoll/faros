@@ -101,16 +101,21 @@ export class CLIReporter {
       return this.colorize('ERROR', 'red')
     }
 
-    if (!result.lighthouseResult) {
-      return this.colorize('PENDING', 'yellow')
+    if (!result.lighthouseResult || !result.lighthouseResult.metrics) {
+      return this.colorize('ERROR', 'red')
+    }
+
+    // If there's no performance score, treat it as an error
+    if (result.lighthouseResult.metrics.performanceScore === undefined) {
+      return this.colorize('ERROR', 'red')
     }
 
     if (result.assertionReport) {
       return result.assertionReport.passed ? this.colorize('PASS', 'green') : this.colorize('FAIL', 'red')
     }
 
-    // No assertions configured - consider it passed if lighthouse completed successfully
-    return this.colorize('PASS', 'green')
+    // No assertions configured but lighthouse completed successfully - show neutral status
+    return this.colorize('--', 'gray')
   }
 
   private formatMetricValue(metric: string, value: number | undefined): string {
