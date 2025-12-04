@@ -14,6 +14,7 @@ export default {
     '!src/**/*.test.ts',
     '!src/**/*.d.ts',
     '!src/index.ts', // Re-export file
+    '!src/lighthouse/lighthouse-worker.ts', // Exclude lighthouse worker from coverage
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],

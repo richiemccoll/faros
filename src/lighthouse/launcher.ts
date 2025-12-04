@@ -1,4 +1,3 @@
-import { launch, LaunchedChrome } from 'chrome-launcher'
 import { type Result } from 'lighthouse'
 import { fork } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
@@ -11,6 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { logger } from '../logger'
 import { deepMergeMutable } from '../core/utils/deep-merge'
 import type { Target, ProfileRef } from '../core/types'
+import { ChromePool } from './chrome-pool'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -41,11 +41,11 @@ export interface LaunchOptions {
 }
 
 export class LighthouseLauncher {
-  private chrome: LaunchedChrome | null = null
+  private chromePool: ChromePool
   private tempDir: string
   private options: Required<LaunchOptions>
 
-  constructor(options: LaunchOptions = {}) {
+  constructor(options: LaunchOptions = {}, poolSize?: number) {
     this.options = {
       headless: true,
       chromeFlags: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -57,103 +57,101 @@ export class LighthouseLauncher {
 
     this.tempDir = this.options.tempDir
     this.ensureTempDir()
+
+    // default to 3 instances in the pool or match concurrency
+    this.chromePool = new ChromePool({
+      poolSize: poolSize || 3,
+      headless: this.options.headless,
+      chromeFlags: this.options.chromeFlags,
+      logLevel: this.options.logLevel,
+    })
   }
 
   async launchChrome(): Promise<void> {
-    if (this.chrome) {
-      return // Already launched
-    }
-
-    try {
-      this.chrome = await launch({
-        chromeFlags: this.options.headless ? [...this.options.chromeFlags, '--headless'] : this.options.chromeFlags,
-        logLevel: this.options.logLevel,
-      })
-    } catch (error) {
-      throw new Error(`Failed to launch Chrome: ${error instanceof Error ? error.message : String(error)}`)
-    }
+    await this.chromePool.initialize()
   }
 
   /**
    * Run Lighthouse audit on a target with a specific profile
    */
   async run(target: Target, profile: ProfileRef): Promise<LighthouseResult> {
-    if (!this.chrome) {
-      await this.launchChrome()
-    }
+    // Acquire a Chrome instance from the pool
+    const chrome = await this.chromePool.acquireChrome()
 
-    const lighthouseConfig = this.buildLighthouseConfig(profile)
-    const flags = {
-      logLevel: this.options.logLevel,
-      output: ['json' as const, 'html' as const],
-      port: this.chrome!.port,
-    }
+    try {
+      const lighthouseConfig = this.buildLighthouseConfig(profile)
+      const flags = {
+        logLevel: this.options.logLevel,
+        output: ['json' as const, 'html' as const],
+        port: chrome.port,
+      }
 
-    // The worker process will write the lighthouse report
-    // into a temp file that this parent process will read and parse
-    const tmpDir = path.join(os.tmpdir(), 'lh-worker')
-    await mkdir(tmpDir, { recursive: true })
-    const tmpFile = path.join(tmpDir, `${randomUUID()}.json`)
-    const maxTimeoutMs = this.options.timeout
+      // The worker process will write the lighthouse report
+      // into a temp file that this parent process will read and parse
+      const tmpDir = path.join(os.tmpdir(), 'lh-worker')
+      await mkdir(tmpDir, { recursive: true })
+      const tmpFile = path.join(tmpDir, `${randomUUID()}.json`)
+      const maxTimeoutMs = this.options.timeout
 
-    // Handle both development and production paths
-    let workerPath: string
-    if (__dirname.includes('/dist/')) {
-      // Production build - from dist/bin to dist/src/lighthouse
-      workerPath = path.join(__dirname, '../src/lighthouse/lighthouse-worker')
-    } else {
-      // Development - same directory as this file
-      workerPath = path.join(__dirname, 'lighthouse-worker')
-    }
+      // Handle both development and production paths
+      let workerPath: string
+      if (__dirname.includes('/dist/')) {
+        // Production build - from dist/bin to dist/src/lighthouse
+        workerPath = path.join(__dirname, '../src/lighthouse/lighthouse-worker')
+      } else {
+        // Development - same directory as this file
+        workerPath = path.join(__dirname, 'lighthouse-worker')
+      }
 
-    await new Promise<void>((resolve, reject) => {
-      const child = fork(workerPath, [tmpFile], {
-        stdio: 'ignore', // we don't need to see worker output
-        env: {
-          ...process.env,
-          LH_TARGET_URL: target.url,
-          LH_FLAGS: JSON.stringify(flags),
-          LH_CONFIG: JSON.stringify(lighthouseConfig),
-        },
+      await new Promise<void>((resolve, reject) => {
+        const child = fork(workerPath, [tmpFile], {
+          stdio: 'ignore', // we don't need to see worker output
+          env: {
+            ...process.env,
+            LH_TARGET_URL: target.url,
+            LH_FLAGS: JSON.stringify(flags),
+            LH_CONFIG: JSON.stringify(lighthouseConfig),
+          },
+        })
+
+        const timer = setTimeout(() => {
+          child.kill('SIGKILL')
+          reject(new Error(`Lighthouse worker timeout after ${maxTimeoutMs}ms`))
+        }, maxTimeoutMs)
+
+        child.once('exit', (code) => {
+          clearTimeout(timer)
+          if (code === 0) return resolve()
+          reject(new Error(`Lighthouse worker exited with code ${code}`))
+        })
+
+        child.once('error', (err) => {
+          clearTimeout(timer)
+          reject(err)
+        })
       })
 
-      const timer = setTimeout(() => {
-        child.kill('SIGKILL')
-        reject(new Error(`Lighthouse worker timeout after ${maxTimeoutMs}ms`))
-      }, maxTimeoutMs)
+      const raw = await readFile(tmpFile, 'utf8')
+      const parsed = JSON.parse(raw)
+      void unlink(tmpFile).catch(() => {})
 
-      child.once('exit', (code) => {
-        clearTimeout(timer)
-        if (code === 0) return resolve()
-        reject(new Error(`Lighthouse worker exited with code ${code}`))
-      })
-
-      child.once('error', (err) => {
-        clearTimeout(timer)
-        reject(err)
-      })
-    })
-
-    const raw = await readFile(tmpFile, 'utf8')
-    const parsed = JSON.parse(raw)
-    void unlink(tmpFile).catch(() => {})
-
-    return {
-      lhr: parsed.lhr,
-      report: parsed.report,
-      artifacts: parsed.artifacts,
+      return {
+        lhr: parsed.lhr,
+        report: parsed.report,
+        artifacts: parsed.artifacts,
+      }
+    } finally {
+      this.chromePool.releaseChrome(chrome)
     }
   }
 
   async kill(): Promise<void> {
-    if (this.chrome) {
-      await this.chrome.kill()
-      this.chrome = null
-    }
+    // Chrome pool manages individual instances now
+    await this.chromePool.cleanup()
   }
 
   async cleanup(): Promise<void> {
-    // Kill Chrome process first
+    // Kill Chrome pool first
     await this.kill()
 
     try {
@@ -212,6 +210,6 @@ export class LighthouseLauncher {
   }
 }
 
-export function createLighthouseLauncher(options?: LaunchOptions): LighthouseLauncher {
-  return new LighthouseLauncher(options)
+export function createLighthouseLauncher(options?: LaunchOptions, concurrency?: number): LighthouseLauncher {
+  return new LighthouseLauncher(options, concurrency)
 }
