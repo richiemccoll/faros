@@ -106,7 +106,7 @@ export class LighthouseLauncher {
 
     await new Promise<void>((resolve, reject) => {
       const child = fork(workerPath, [tmpFile], {
-        stdio: 'inherit', // no IPC, just inherit stdio
+        stdio: 'ignore', // we don't need to see worker output
         env: {
           ...process.env,
           LH_TARGET_URL: target.url,
