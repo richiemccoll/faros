@@ -1,12 +1,12 @@
 # Faros
 
-**Modern performance testing framework** powered by Lighthouse with comprehensive configuration management and flexible reporting.
+**Modern frontend performance testing framework** for Node.js, powered by Lighthouse with comprehensive configuration management and flexible reporting.
 
 ## Features
 
 - **Comprehensive Core Web Vitals** - Track LCP, CLS, FCP, FID, INP, and TBT
 - **Concurrent Performance Testing** - Test multiple URLs simultaneously with configurable concurrency
-- **Intelligent Retry Logic** - Automatic retry with exponential backoff for failed tests
+- **Assertions-first:** Define budgets and change limits (LCP, CLS, perf score, etc.) and fail builds when they’re broken.
 - **Multiple Report Formats** - CLI, JSON, HTML, and JUnit output formats
 - **Extensible Plugin System** - Custom plugins for notifications, baseline comparison, and more
 
@@ -70,26 +70,71 @@ faros run --verbose
 faros run --quiet
 ```
 
-**Output example:**
+**Output examples:**
+
+**Single Profile:**
 
 ```
 ℹ Loading configuration...
-ℹ Loaded config with 1 targets and 0 custom profiles
-ℹ Running 1 targets with concurrency 1...
-ℹ Starting performance test run with 1 task(s)
+ℹ Loaded config with 2 targets and 0 custom profiles
+ℹ Running 1 targets with concurrency 2...
+ℹ Starting performance test run with 1 task(s) across 1 profile(s)
 ℹ 🚀 Starting 1 performance test(s)
+ℹ 🔧 Starting profile: mobileSlow3G (1 task(s))
 ℹ ⏳ Running: Homepage (mobileSlow3G)
-ℹ ✅ Completed: Homepage 🟢 Score: 100
-ℹ Performance test run completed. 1 result(s)
-ℹ 🏁 Performance tests completed: 1 passed, 0 failed
-✓ PASSED Performance Test Results (8.1s)
+ℹ ✅ Completed: Homepage 🟢 Score: 99
+ℹ ✅ Completed profile: mobileSlow3G
+ℹ 🏁 Performance test run completed. 1 task(s) processed
+✓ PASSED Performance Test Results (8.7s)
 
-id     | URL                 | Status | LCP    | CLS    | FID    | TBT    | FCP    | Score
--------+---------------------+--------+--------+--------+--------+--------+--------+-------
-home   | https://example.com | PASS   | 815ms  | 0.000  | 42ms   | 0ms    | 815ms  | 100
+id   | URL                      | Status | LCP   | CLS   | FID   | TBT   | FCP   | INP | Score
+-----+--------------------------+--------+-------+-------+-------+-------+-------+-----+-------
+Profile: mobileSlow3G
+-----+--------------------------+--------+-------+-------+-------+-------+-------+-----+-------
+home | https://richiemccoll.com | PASS   | 932ms | 0.000 | 146ms | 127ms | 932ms | -   | 99
 
 Tasks: 1 total, 1 completed, 0 failed
 ```
+
+**Multiple Profiles:**
+
+```
+ℹ Starting performance test run with 3 task(s) across 2 profile(s)
+ℹ 🔧 Starting profile: mobileSlow3G (2 task(s))
+ℹ ⏳ Running: Google Mobile (mobileSlow3G)
+ℹ ⏳ Running: Example Mobile (mobileSlow3G)
+ℹ ✅ Completed: Example Mobile 🟢 Score: 100
+ℹ ✅ Completed: Google Mobile 🟡 Score: 82
+ℹ ✅ Completed profile: mobileSlow3G
+ℹ 🔧 Starting profile: desktop (1 task(s))
+ℹ ⏳ Running: Google Desktop (desktop)
+ℹ ✅ Completed: Google Desktop 🟢 Score: 96
+ℹ ✅ Completed profile: desktop
+✓ PASSED Performance Test Results (45.8s)
+
+Profile: mobileSlow3G
+---------------+------------------------+--------+-------+-------+-----+-------+-------+-----+-------
+id             | URL                    | Status | LCP   | CLS   | FID | TBT   | FCP   | INP | Score
+---------------+------------------------+--------+-------+-------+-----+-------+-------+-----+-------
+google-mobile  | https://www.google.com | OK     | 4073ms| 0.000 | 30ms| 0ms   | 2275ms| -   | 82
+example-mobile | https://example.com    | GOOD   | 794ms | 0.000 | 16ms| 0ms   | 794ms | -   | 100
+
+Profile: desktop
+---------------+------------------------+--------+-------+-------+-----+-------+-------+-----+-------
+id             | URL                    | Status | LCP   | CLS   | FID | TBT   | FCP   | INP | Score
+---------------+------------------------+--------+-------+-------+-----+-------+-------+-----+-------
+google-desktop | https://www.google.com | GOOD   | 1082ms| 0.000 | 16ms| 0ms   | 1082ms| -   | 96
+
+Tasks: 3 total, 3 completed, 0 failed
+```
+
+**Status Indicators:**
+
+- `PASS`/`FAIL` (when assertions are configured)
+- `GOOD` (90+ performance score)
+- `OK` (70-89 performance score)
+- `POOR` (<70 performance score)
+- `ERROR` (task execution failed)
 
 ### `print-config` - Configuration Validation
 
@@ -158,6 +203,15 @@ faros print-config --quiet
 }
 ✅ Configuration is valid
 ```
+
+---
+
+## Profile-Grouped Execution
+
+Faros automatically groups tasks by Lighthouse profile and executes them sequentially by profile group while maintaining parallel execution within each group. This approach provides several benefits:
+
+- **Resource Optimization**: Different profiles have different resource requirements (CPU, memory, network)
+- **Predictable Results**: Eliminates interference between different profile configurations
 
 ---
 

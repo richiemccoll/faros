@@ -146,12 +146,10 @@ export class LighthouseLauncher {
   }
 
   async kill(): Promise<void> {
-    // Chrome pool manages individual instances now
     await this.chromePool.cleanup()
   }
 
   async cleanup(): Promise<void> {
-    // Kill Chrome pool first
     await this.kill()
 
     try {

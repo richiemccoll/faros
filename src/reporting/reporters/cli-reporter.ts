@@ -60,22 +60,75 @@ export class CLIReporter {
   }
 
   private formatTable(taskResults: TaskResult[]): string {
+    // Group tasks by profile
+    const tasksByProfile = this.groupTasksByProfile(taskResults)
+
+    if (tasksByProfile.size === 0) {
+      return 'No tasks to display'
+    }
+
     // Table headers
     const headers = ['id', 'URL', 'Status', ...this.options.showMetrics.map(this.formatMetricHeader)]
-
     const colWidths = this.calculateColumnWidths(headers, taskResults)
 
     const lines: string[] = []
 
-    lines.push(this.formatRow(headers, colWidths))
-    lines.push(this.formatSeparator(colWidths))
+    // If only one profile, use the simple format
+    if (tasksByProfile.size === 1) {
+      const firstEntry = Array.from(tasksByProfile.entries())[0]!
+      const [profileId, tasks] = firstEntry
 
-    for (const result of taskResults) {
-      const row = this.formatDataRow(result)
-      lines.push(this.formatRow(row, colWidths))
+      lines.push(this.formatRow(headers, colWidths))
+      lines.push(this.formatSeparator(colWidths))
+      lines.push(this.colorize(`Profile: ${profileId}`, 'blue'))
+      lines.push(this.formatSeparator(colWidths))
+
+      for (const result of tasks) {
+        const row = this.formatDataRow(result)
+        lines.push(this.formatRow(row, colWidths))
+      }
+    } else {
+      // Multiple profiles - group them distinctly
+      let isFirstProfile = true
+
+      for (const [profileId, tasks] of tasksByProfile) {
+        if (!isFirstProfile) {
+          lines.push('') // Add space between profile groups
+        }
+
+        // Profile header
+        lines.push(this.colorize(`Profile: ${profileId}`, 'blue'))
+        lines.push(this.formatSeparator(colWidths))
+
+        // Column headers for this profile group
+        lines.push(this.formatRow(headers, colWidths))
+        lines.push(this.formatSeparator(colWidths))
+
+        // Tasks for this profile
+        for (const result of tasks) {
+          const row = this.formatDataRow(result)
+          lines.push(this.formatRow(row, colWidths))
+        }
+
+        isFirstProfile = false
+      }
     }
 
     return lines.join('\n')
+  }
+
+  private groupTasksByProfile(taskResults: TaskResult[]): Map<string, TaskResult[]> {
+    const grouped = new Map<string, TaskResult[]>()
+
+    for (const result of taskResults) {
+      const profileId = result.task?.profile?.id || 'unknown'
+      if (!grouped.has(profileId)) {
+        grouped.set(profileId, [])
+      }
+      grouped.get(profileId)!.push(result)
+    }
+
+    return grouped
   }
 
   private formatDataRow(result: TaskResult): string[] {
@@ -110,12 +163,20 @@ export class CLIReporter {
       return this.colorize('ERROR', 'red')
     }
 
+    // If assertions are configured, use assertion results
     if (result.assertionReport) {
       return result.assertionReport.passed ? this.colorize('PASS', 'green') : this.colorize('FAIL', 'red')
     }
 
-    // No assertions configured but lighthouse completed successfully - show neutral status
-    return this.colorize('--', 'gray')
+    // No assertions configured - show performance-based status
+    const performanceScore = result.lighthouseResult.metrics.performanceScore
+    if (performanceScore >= 90) {
+      return this.colorize('GOOD', 'green')
+    } else if (performanceScore >= 70) {
+      return this.colorize('OK', 'yellow')
+    } else {
+      return this.colorize('POOR', 'red')
+    }
   }
 
   private formatMetricValue(metric: string, value: number | undefined): string {

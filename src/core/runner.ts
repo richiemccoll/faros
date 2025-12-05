@@ -74,22 +74,33 @@ export class Runner extends EventEmitter {
    */
   async run(): Promise<RunSummary> {
     try {
-      const tasks = this.generateTasks()
+      const tasksByProfile = this.generateTasksByProfile()
 
-      if (tasks.length === 0) {
+      if (tasksByProfile.size === 0) {
         throw new Error('No tasks generated from configuration')
       }
 
-      logger.info(`Starting performance test run with ${tasks.length} task(s)`)
-      this.emit('runStart', tasks.length)
+      const totalTasks = Array.from(tasksByProfile.values()).reduce((sum, tasks) => sum + tasks.length, 0)
+      logger.info(`Starting performance test run with ${totalTasks} task(s) across ${tasksByProfile.size} profile(s)`)
+      this.emit('runStart', totalTasks)
 
-      this.scheduler.addTasks(tasks)
-      const results = await this.scheduler.run()
+      // Execute tasks sequentially by profile, but in parallel within each profile
+      for (const [profileId, tasks] of tasksByProfile) {
+        logger.info(`🔧 Starting profile: ${profileId} (${tasks.length} task(s))`)
+
+        // Reset scheduler for this profile group
+        this.scheduler.stop()
+        this.scheduler.addTasks(tasks)
+
+        await this.scheduler.run()
+
+        logger.info(`✅ Completed profile: ${profileId}`)
+      }
 
       this.reportCollector.completeRun()
       const summary = this.reportCollector.getSummary()
 
-      logger.info(`Performance test run completed. ${results.length} result(s)`)
+      logger.info(`🏁 Performance test run completed. ${summary.totalTasks} task(s) processed`)
       this.emit('runComplete', summary)
 
       return summary
@@ -200,10 +211,10 @@ export class Runner extends EventEmitter {
   }
 
   /**
-   * Generate tasks from configuration targets
+   * Generate tasks from configuration targets, grouped by profile
    */
-  private generateTasks(): Task[] {
-    const tasks: Task[] = []
+  private generateTasksByProfile(): Map<string, Task[]> {
+    const tasksByProfile = new Map<string, Task[]>()
 
     for (const target of this.config.targets) {
       // Determine which profile(s) to use for this target
@@ -217,11 +228,16 @@ export class Runner extends EventEmitter {
           attempt: 0,
           createdAt: new Date(),
         }
-        tasks.push(task)
+
+        // Group tasks by profile ID
+        if (!tasksByProfile.has(profile.id)) {
+          tasksByProfile.set(profile.id, [])
+        }
+        tasksByProfile.get(profile.id)!.push(task)
       }
     }
 
-    return tasks
+    return tasksByProfile
   }
 
   /**
