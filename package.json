@@ -3,7 +3,8 @@
   "description": "Modern performance testing framework powered by Lighthouse with comprehensive configuration management and flexible reporting.",
   "version": "0.0.3",
   "type": "module",
-  "main": "dist/bin/run.js",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
   "bin": {
     "faros": "./bin/run"
   },

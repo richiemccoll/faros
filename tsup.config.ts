@@ -7,6 +7,7 @@ export default defineConfig({
     'src/index': 'src/index.ts',
   },
   format: ['esm'],
+  dts: true,
   splitting: false,
   sourcemap: false,
   clean: true,
