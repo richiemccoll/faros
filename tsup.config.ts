@@ -4,6 +4,7 @@ export default defineConfig({
   entry: {
     'bin/run': 'bin/run.ts',
     'src/lighthouse/lighthouse-worker': 'src/lighthouse/lighthouse-worker.ts',
+    'src/index': 'src/index.ts',
   },
   format: ['esm'],
   splitting: false,

@@ -20,14 +20,11 @@ export default {
   coverageReporters: ['text', 'lcov', 'html'],
   coverageThreshold: {
     global: {
-      branches: 50,
-      functions: 50,
-      lines: 50,
-      statements: 50,
+      branches: 70,
+      functions: 80,
+      lines: 80,
+      statements: 80,
     },
   },
-  testPathIgnorePatterns: [
-    '<rootDir>/dist/',
-    '<rootDir>/src/cli/tests/', // Temporarily skip CLI tests for initial release
-  ],
+  testPathIgnorePatterns: ['<rootDir>/dist/'],
 }

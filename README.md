@@ -1,6 +1,6 @@
 # Faros
 
-**Modern frontend performance testing framework** for Node.js, powered by Lighthouse with comprehensive configuration management and flexible reporting.
+A Modern frontend performance testing framework for Node.js, powered by Lighthouse with comprehensive configuration management and flexible reporting.
 
 ## Features
 
@@ -16,7 +16,15 @@
 npm install -g faros
 ```
 
-## Quick Start
+or if you want to use the API or as a dependency:
+
+```bash
+npm i faros --save
+```
+
+## Usage
+
+### Command Line
 
 **Create a configuration JSON file:**
 
@@ -41,9 +49,7 @@ npm install -g faros
 }
 ```
 
-## CLI Commands
-
-### `run` - Performance Testing
+#### `run` - Performance Testing
 
 Executes Lighthouse performance tests on configured targets with specified profiles.
 
@@ -128,6 +134,24 @@ google-desktop | https://www.google.com | GOOD   | 1082ms| 0.000 | 16ms| 0ms   |
 Tasks: 3 total, 3 completed, 0 failed
 ```
 
+---
+
+### Programmatically
+
+```js
+import { run } from 'faros'
+
+const result = await run({
+  targets: 'https://example.com',
+})
+
+console.log(`Performance Score: ${result.metrics?.performanceScore}`)
+console.log(`LCP: ${result.metrics?.lcp}ms`)
+console.log(`Passed: ${result.passed}`)
+```
+
+---
+
 **Status Indicators:**
 
 - `PASS`/`FAIL` (when assertions are configured)
@@ -135,83 +159,6 @@ Tasks: 3 total, 3 completed, 0 failed
 - `OK` (70-89 performance score)
 - `POOR` (<70 performance score)
 - `ERROR` (task execution failed)
-
-### `print-config` - Configuration Validation
-
-Shows the resolved and validated configuration after merging all sources (file + environment + CLI overrides).
-
-```bash
-# Show resolved configuration with resolved profiles
-faros print-config
-
-# Load specific config file
-faros print-config --config custom.config.json
-
-# Quiet mode (no success messages)
-faros print-config --quiet
-```
-
-**Output example:**
-
-```json
-{
-  "targets": [
-    {
-      "id": "homepage",
-      "url": "https://example.com",
-      "tags": ["critical"]
-    },
-    {
-      "id": "mobile-checkout",
-      "url": "https://example.com/checkout",
-      "profile": "customMobile"
-    }
-  ],
-  "profiles": {
-    "customMobile": {
-      "id": "customMobile",
-      "extends": "mobileSlow3G",
-      "lighthouseConfig": {
-        "settings": { "onlyCategories": ["performance"] }
-      }
-    }
-  },
-  "defaultProfile": "desktop",
-  "_resolvedProfiles": {
-    "desktop": {
-      "id": "desktop",
-      "name": "Desktop Fast",
-      "lighthouseConfig": {
-        "settings": {
-          "emulatedFormFactor": "desktop",
-          "throttling": { "rttMs": 40, "throughputKbps": 10240 }
-        }
-      }
-    },
-    "customMobile": {
-      "id": "customMobile",
-      "name": "Custom Mobile Profile",
-      "lighthouseConfig": {
-        "settings": {
-          "emulatedFormFactor": "mobile",
-          "throttling": { "rttMs": 150, "throughputKbps": 1638.4 },
-          "onlyCategories": ["performance"]
-        }
-      }
-    }
-  }
-}
-✅ Configuration is valid
-```
-
----
-
-## Profile-Grouped Execution
-
-Faros automatically groups tasks by Lighthouse profile and executes them sequentially by profile group while maintaining parallel execution within each group. This approach provides several benefits:
-
-- **Resource Optimization**: Different profiles have different resource requirements (CPU, memory, network)
-- **Predictable Results**: Eliminates interference between different profile configurations
 
 ---
 

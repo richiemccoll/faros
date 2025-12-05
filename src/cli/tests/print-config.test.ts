@@ -6,15 +6,33 @@ import { runCli } from '../cli'
 
 const TEST_DIR = join(process.cwd(), 'test-configs')
 
-// Mock chrome-launcher to avoid ESM import issues in Jest
 jest.mock('chrome-launcher', () => ({
   launch: jest.fn(),
 }))
 
-// Mock lighthouse to avoid ESM import issues in Jest
 jest.mock('lighthouse', () => ({
   default: jest.fn(),
 }))
+
+jest.mock('../../lighthouse/launcher', () => {
+  const mockLauncherMethods = {
+    launchChrome: jest.fn(),
+    run: jest.fn(),
+    kill: jest.fn(),
+    cleanup: jest.fn(),
+  }
+
+  mockLauncherMethods.launchChrome.mockResolvedValue(undefined as never)
+  mockLauncherMethods.kill.mockResolvedValue(undefined as never)
+  mockLauncherMethods.cleanup.mockResolvedValue(undefined as never)
+
+  return {
+    LighthouseLauncher: jest.fn().mockImplementation(() => mockLauncherMethods),
+    createLighthouseLauncher: jest.fn().mockReturnValue(mockLauncherMethods),
+    // Export the methods for test access
+    __mockLauncherMethods: mockLauncherMethods,
+  }
+})
 
 // Capture console output for testing
 const captureOutput = () => {

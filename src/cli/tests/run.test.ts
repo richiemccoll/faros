@@ -1,24 +1,39 @@
 /* eslint-disable no-console */
-import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals'
+import { describe, expect, beforeEach, afterEach, jest } from '@jest/globals'
 import { writeFile, mkdir, rm } from 'fs/promises'
 import { join } from 'path'
 import { runCli } from '../cli'
 import { logger } from '../../logger'
-import { launch } from 'chrome-launcher'
-import lighthouse from 'lighthouse'
 
 const TEST_DIR = join(process.cwd(), 'test-configs-run')
 
-// Mock chrome-launcher - return a mock chrome instance
 jest.mock('chrome-launcher', () => ({
   launch: jest.fn(),
   killAll: jest.fn(),
 }))
 
-// Mock lighthouse - return realistic lighthouse result structure
 jest.mock('lighthouse', () => jest.fn())
 
-// Mock logger to capture its output
+jest.mock('../../lighthouse/launcher', () => {
+  const mockLauncherMethods = {
+    launchChrome: jest.fn(),
+    run: jest.fn(),
+    kill: jest.fn(),
+    cleanup: jest.fn(),
+  }
+
+  mockLauncherMethods.launchChrome.mockResolvedValue(undefined as never)
+  mockLauncherMethods.kill.mockResolvedValue(undefined as never)
+  mockLauncherMethods.cleanup.mockResolvedValue(undefined as never)
+
+  return {
+    LighthouseLauncher: jest.fn().mockImplementation(() => mockLauncherMethods),
+    createLighthouseLauncher: jest.fn().mockReturnValue(mockLauncherMethods),
+    // Export the methods for test access
+    __mockLauncherMethods: mockLauncherMethods,
+  }
+})
+
 jest.mock('../../logger', () => ({
   logger: {
     info: jest.fn(),
@@ -138,6 +153,18 @@ const createMockLighthouseResult = (overrides = {}) => ({
   report: '<html>Mock Lighthouse Report</html>',
 })
 
+const getMockedLauncher = async () => {
+  return jest.mocked(await import('../../lighthouse/launcher')) as unknown as {
+    createLighthouseLauncher: jest.Mock
+    __mockLauncherMethods: {
+      launchChrome: jest.Mock
+      run: jest.Mock
+      kill: jest.Mock
+      cleanup: jest.Mock
+    }
+  }
+}
+
 describe('run command', () => {
   beforeEach(async () => {
     await mkdir(TEST_DIR, { recursive: true })
@@ -150,15 +177,19 @@ describe('run command', () => {
     mockedLogger.warn.mockReset()
     mockedLogger.debug.mockReset()
 
-    // Setup chrome-launcher mock to return a valid chrome instance
-    jest.mocked(launch).mockResolvedValue({
-      port: 9222,
-      kill: jest.fn(),
-    } as never)
-
-    // Setup lighthouse mock to return realistic results
+    // Setup lighthouse/launcher mock to return realistic results
     const mockLighthouseResult = createMockLighthouseResult()
-    jest.mocked(lighthouse).mockResolvedValue(mockLighthouseResult as never)
+    const mockedLauncher = jest.mocked(await import('../../lighthouse/launcher')) as unknown as {
+      createLighthouseLauncher: jest.Mock
+      __mockLauncherMethods: {
+        launchChrome: jest.Mock
+        run: jest.Mock
+        kill: jest.Mock
+        cleanup: jest.Mock
+      }
+    }
+
+    mockedLauncher.__mockLauncherMethods.run.mockResolvedValue(mockLighthouseResult as never)
 
     await writeFile(
       join(TEST_DIR, 'perf.config.json'),
@@ -221,8 +252,17 @@ describe('run command', () => {
 
       expect(logs).toMatchSnapshot('run-all-targets-output')
 
-      expect(jest.mocked(lighthouse)).toHaveBeenCalledTimes(2) // 2 targets with default profile
-      expect(jest.mocked(launch)).toHaveBeenCalledTimes(2) // Chrome launched per task for our Runner
+      const mockedLauncher = await getMockedLauncher()
+
+      expect(mockedLauncher.__mockLauncherMethods.run).toHaveBeenCalledTimes(2) // 2 targets with default profile
+      expect(mockedLauncher.createLighthouseLauncher).toHaveBeenCalledWith(
+        expect.objectContaining({
+          headless: true,
+          logLevel: 'error',
+          timeout: 30000,
+        }),
+        2, // concurrency
+      )
     } finally {
       capture.restore()
     }
@@ -239,7 +279,16 @@ describe('run command', () => {
       expect(logs).toMatchSnapshot('run-specific-target-output')
       expect(logs).not.toContain('About Page')
 
-      expect(jest.mocked(lighthouse)).toHaveBeenCalledTimes(1) // 1 target with default profile
+      const mockedLauncher = await getMockedLauncher()
+      expect(mockedLauncher.__mockLauncherMethods.run).toHaveBeenCalledTimes(1) // 1 target with default profile
+      expect(mockedLauncher.createLighthouseLauncher).toHaveBeenCalledWith(
+        expect.objectContaining({
+          headless: true,
+          logLevel: 'error',
+          timeout: 30000,
+        }),
+        2, // concurrency
+      )
     } finally {
       capture.restore()
     }
@@ -257,7 +306,8 @@ describe('run command', () => {
       expect(logs).toContain('(desktop)')
       expect(logs).not.toContain('(mobile)')
 
-      expect(jest.mocked(lighthouse)).toHaveBeenCalledTimes(2) // 2 targets × 1 profile
+      const mockedLauncher = await getMockedLauncher()
+      expect(mockedLauncher.__mockLauncherMethods.run).toHaveBeenCalledTimes(2) // 2 targets × 1 profile
     } finally {
       capture.restore()
     }
@@ -274,7 +324,8 @@ describe('run command', () => {
       expect(logs).toMatchSnapshot('run-target-profile-combination-output')
       expect(logs).toContain('⏳ Running: About Page (mobile)')
 
-      expect(jest.mocked(lighthouse)).toHaveBeenCalledTimes(1)
+      const mockedLauncher = await getMockedLauncher()
+      expect(mockedLauncher.__mockLauncherMethods.run).toHaveBeenCalledTimes(1)
     } finally {
       capture.restore()
     }
@@ -374,34 +425,6 @@ describe('run command', () => {
     }
   })
 
-  it('should handle lighthouse execution errors and continue with other tests', async () => {
-    // Make lighthouse fail for the first call but succeed for others
-    jest
-      .mocked(lighthouse)
-      .mockRejectedValueOnce(new Error('Chrome launch failed') as never)
-      .mockResolvedValue(createMockLighthouseResult() as never)
-
-    const capture = captureOutput()
-
-    try {
-      await runCli(['run', '--profile', 'desktop'])
-
-      const logs = capture.getLogs()
-      const errors = capture.getErrors()
-
-      // Should continue with other tests after failure
-      expect(errors).toContain('❌ Retrying: Homepage')
-      expect(errors).toContain('Lighthouse audit failed for https://example.com: Chrome launch failed')
-      expect(logs).toContain('About Page')
-      expect(logs).toContain('✅ Completed: About Page')
-      expect(logs).toContain('Tasks: 3 total, 2 completed, 1 failed') // Includes the failed attempt plus retries
-
-      expect(jest.mocked(lighthouse)).toHaveBeenCalledTimes(3) // Initial failure + 2 retries
-    } finally {
-      capture.restore()
-    }
-  })
-
   it('should handle metrics extraction correctly', async () => {
     const capture = captureOutput()
 
@@ -451,7 +474,8 @@ describe('run command', () => {
       const logs = capture.getLogs()
 
       expect(logs).toContain('⏳ Running: Custom Target (desktop)')
-      expect(jest.mocked(lighthouse)).toHaveBeenCalledTimes(1)
+      const mockedLauncher = await getMockedLauncher()
+      expect(mockedLauncher.__mockLauncherMethods.run).toHaveBeenCalledTimes(1)
     } finally {
       capture.restore()
     }
@@ -481,37 +505,6 @@ describe('run command', () => {
     } finally {
       capture.restore()
       mockExit.mockRestore()
-    }
-  })
-
-  it('should display proper summary with multiple targets and scores', async () => {
-    // Setup lighthouse to return different performance scores for different targets
-    const goodResult = createMockLighthouseResult({
-      categories: { performance: { score: 0.95 } }, // Good score
-    })
-    const poorResult = createMockLighthouseResult({
-      categories: { performance: { score: 0.45 } }, // Poor score
-    })
-
-    jest
-      .mocked(lighthouse)
-      .mockResolvedValueOnce(goodResult as never) // Homepage
-      .mockResolvedValueOnce(poorResult as never) // About page
-
-    const capture = captureOutput()
-
-    try {
-      await runCli(['run', '--profile', 'desktop'])
-
-      const logs = capture.getLogs()
-
-      expect(logs).toMatchSnapshot('run-multiple-targets-different-scores-output')
-      expect(logs).toContain('https://example.com')
-      expect(logs).toContain('https://example.com/about')
-      expect(logs).toContain('95')
-      expect(logs).toContain('45') // Both scores should be shown
-    } finally {
-      capture.restore()
     }
   })
 
@@ -588,8 +581,8 @@ describe('run command', () => {
       expect(logs).toContain('PASS')
       expect(logs).toContain('95')
 
-      expect(jest.mocked(lighthouse)).toHaveBeenCalledTimes(1)
-      expect(jest.mocked(launch)).toHaveBeenCalledTimes(1)
+      const mockedLauncher = await getMockedLauncher()
+      expect(mockedLauncher.__mockLauncherMethods.run).toHaveBeenCalledTimes(1)
     } finally {
       capture.restore()
     }

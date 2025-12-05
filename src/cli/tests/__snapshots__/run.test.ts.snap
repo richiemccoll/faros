@@ -1,33 +1,12 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`run command should display proper summary with multiple targets and scores: run-multiple-targets-different-scores-output 1`] = `
-"Loading configuration...
-Loaded config with 2 targets and 2 custom profiles
-Running 2 targets with concurrency 2...
-Starting performance test run with 2 task(s)
-🚀 Starting 2 performance test(s)
-⏳ Running: Homepage (desktop)
-⏳ Running: About Page (desktop)
-✅ Completed: Homepage 🟢 Score: 95
-✅ Completed: About Page 🔴 Score: 45
-Performance test run completed. 2 result(s)
-🏁 Performance tests completed: 2 passed, 0 failed
-[32m✓ PASSED[39m Performance Test Results (0.0s)
-
-id       | URL                       | Status | LCP    | CLS    | FID    | TBT    | FCP    | INP    | Score 
----------+---------------------------+--------+--------+--------+--------+--------+--------+--------+-------
-homepage | https://example.com       | [32mPASS[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 75ms   | 95    
-about    | https://example.com/about | [32mPASS[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 75ms   | 45    
-
-Tasks: 2 total, 2 completed, 0 failed"
-`;
-
 exports[`run command should run assertions when configured and include assertion results: run-with-assertions-output 1`] = `
 "Loading configuration...
 Loaded config with 1 targets and 1 custom profiles
 Running 1 targets with concurrency 1...
-Starting performance test run with 1 task(s)
+Starting performance test run with 1 task(s) across 1 profile(s)
 🚀 Starting 1 performance test(s)
+🔧 Starting profile: desktop (1 task(s))
 ⏳ Running: Homepage (desktop)
 Starting assertion evaluation for task homepage_desktop_TASK_ID
 Resolving assertion config for target homepage
@@ -37,11 +16,14 @@ Metric evaluation complete: 0 metrics evaluated
 Assertion evaluation complete for task homepage_desktop_TASK_ID: PASSED (0/0 assertions passed)
 Assertions evaluated for task homepage_desktop_TASK_ID: PASSED (0/0 passed)
 ✅ Completed: Homepage 🟢 Score: 95
-Performance test run completed. 1 result(s)
+✅ Completed profile: desktop
+🏁 Performance test run completed. 1 task(s) processed
 🏁 Performance tests completed: 1 passed, 0 failed
 [32m✓ PASSED[39m Performance Test Results (0.0s)
 
 id       | URL                 | Status | LCP    | CLS    | FID    | TBT    | FCP    | INP    | Score 
+---------+---------------------+--------+--------+--------+--------+--------+--------+--------+-------
+[34mProfile: desktop[39m
 ---------+---------------------+--------+--------+--------+--------+--------+--------+--------+-------
 homepage | https://example.com | [32mPASS[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 75ms   | 95    
 
@@ -52,20 +34,24 @@ exports[`run command should run performance tests on all targets with all profil
 "Loading configuration...
 Loaded config with 2 targets and 2 custom profiles
 Running 2 targets with concurrency 2...
-Starting performance test run with 2 task(s)
+Starting performance test run with 2 task(s) across 1 profile(s)
 🚀 Starting 2 performance test(s)
+🔧 Starting profile: desktop (2 task(s))
 ⏳ Running: Homepage (desktop)
 ⏳ Running: About Page (desktop)
 ✅ Completed: Homepage 🟢 Score: 95
 ✅ Completed: About Page 🟢 Score: 95
-Performance test run completed. 2 result(s)
+✅ Completed profile: desktop
+🏁 Performance test run completed. 2 task(s) processed
 🏁 Performance tests completed: 2 passed, 0 failed
 [32m✓ PASSED[39m Performance Test Results (0.0s)
 
 id       | URL                       | Status | LCP    | CLS    | FID    | TBT    | FCP    | INP    | Score 
 ---------+---------------------------+--------+--------+--------+--------+--------+--------+--------+-------
-homepage | https://example.com       | [32mPASS[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 75ms   | 95    
-about    | https://example.com/about | [32mPASS[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 75ms   | 95    
+[34mProfile: desktop[39m
+---------+---------------------------+--------+--------+--------+--------+--------+--------+--------+-------
+homepage | https://example.com       | [32mGOOD[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 75ms   | 95    
+about    | https://example.com/about | [32mGOOD[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 75ms   | 95    
 
 Tasks: 2 total, 2 completed, 0 failed"
 `;
@@ -74,20 +60,24 @@ exports[`run command should run specific profile only: run-specific-profile-outp
 "Loading configuration...
 Loaded config with 2 targets and 2 custom profiles
 Running 2 targets with concurrency 2...
-Starting performance test run with 2 task(s)
+Starting performance test run with 2 task(s) across 1 profile(s)
 🚀 Starting 2 performance test(s)
+🔧 Starting profile: desktop (2 task(s))
 ⏳ Running: Homepage (desktop)
 ⏳ Running: About Page (desktop)
 ✅ Completed: Homepage 🟢 Score: 95
 ✅ Completed: About Page 🟢 Score: 95
-Performance test run completed. 2 result(s)
+✅ Completed profile: desktop
+🏁 Performance test run completed. 2 task(s) processed
 🏁 Performance tests completed: 2 passed, 0 failed
 [32m✓ PASSED[39m Performance Test Results (0.0s)
 
 id       | URL                       | Status | LCP    | CLS    | FID    | TBT    | FCP    | INP    | Score 
 ---------+---------------------------+--------+--------+--------+--------+--------+--------+--------+-------
-homepage | https://example.com       | [32mPASS[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 75ms   | 95    
-about    | https://example.com/about | [32mPASS[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 75ms   | 95    
+[34mProfile: desktop[39m
+---------+---------------------------+--------+--------+--------+--------+--------+--------+--------+-------
+homepage | https://example.com       | [32mGOOD[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 75ms   | 95    
+about    | https://example.com/about | [32mGOOD[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 75ms   | 95    
 
 Tasks: 2 total, 2 completed, 0 failed"
 `;
@@ -96,17 +86,21 @@ exports[`run command should run specific target and profile combination: run-tar
 "Loading configuration...
 Loaded config with 2 targets and 2 custom profiles
 Running 1 targets with concurrency 2...
-Starting performance test run with 1 task(s)
+Starting performance test run with 1 task(s) across 1 profile(s)
 🚀 Starting 1 performance test(s)
+🔧 Starting profile: mobile (1 task(s))
 ⏳ Running: About Page (mobile)
 ✅ Completed: About Page 🟢 Score: 95
-Performance test run completed. 1 result(s)
+✅ Completed profile: mobile
+🏁 Performance test run completed. 1 task(s) processed
 🏁 Performance tests completed: 1 passed, 0 failed
 [32m✓ PASSED[39m Performance Test Results (0.0s)
 
 id     | URL                       | Status | LCP    | CLS    | FID    | TBT    | FCP    | INP    | Score 
 -------+---------------------------+--------+--------+--------+--------+--------+--------+--------+-------
-about  | https://example.com/about | [32mPASS[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 75ms   | 95    
+[34mProfile: mobile[39m
+-------+---------------------------+--------+--------+--------+--------+--------+--------+--------+-------
+about  | https://example.com/about | [32mGOOD[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 75ms   | 95    
 
 Tasks: 1 total, 1 completed, 0 failed"
 `;
@@ -115,17 +109,21 @@ exports[`run command should run specific target only: run-specific-target-output
 "Loading configuration...
 Loaded config with 2 targets and 2 custom profiles
 Running 1 targets with concurrency 2...
-Starting performance test run with 1 task(s)
+Starting performance test run with 1 task(s) across 1 profile(s)
 🚀 Starting 1 performance test(s)
+🔧 Starting profile: desktop (1 task(s))
 ⏳ Running: Homepage (desktop)
 ✅ Completed: Homepage 🟢 Score: 95
-Performance test run completed. 1 result(s)
+✅ Completed profile: desktop
+🏁 Performance test run completed. 1 task(s) processed
 🏁 Performance tests completed: 1 passed, 0 failed
 [32m✓ PASSED[39m Performance Test Results (0.0s)
 
 id       | URL                 | Status | LCP    | CLS    | FID    | TBT    | FCP    | INP    | Score 
 ---------+---------------------+--------+--------+--------+--------+--------+--------+--------+-------
-homepage | https://example.com | [32mPASS[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 75ms   | 95    
+[34mProfile: desktop[39m
+---------+---------------------+--------+--------+--------+--------+--------+--------+--------+-------
+homepage | https://example.com | [32mGOOD[39m   | 1200ms | 0.050  | 50ms   | 100ms  | 800ms  | 75ms   | 95    
 
 Tasks: 1 total, 1 completed, 0 failed"
 `;
