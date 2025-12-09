@@ -331,7 +331,7 @@ describe('run command', () => {
     }
   })
 
-  it('should output JSON in quiet mode', async () => {
+  it('should output JSON in when running in format json', async () => {
     const mockExit = jest.spyOn(process, 'exit').mockImplementation((code) => {
       throw new Error(`process.exit(${code})`)
     })
@@ -339,7 +339,7 @@ describe('run command', () => {
     const capture = captureOutput()
 
     try {
-      await runCli(['run', '--target', 'homepage', '--profile', 'desktop', '--quiet'])
+      await runCli(['run', '--target', 'homepage', '--profile', 'desktop', '--format', 'json', '--quiet'])
 
       const logs = capture.getLogs()
       const errors = capture.getErrors()
@@ -349,34 +349,33 @@ describe('run command', () => {
       // In quiet mode, should output JSON - look for JSON object
       const jsonMatch = logs.match(/\{[\s\S]*\}/)
       expect(jsonMatch).toBeTruthy()
-
-      if (jsonMatch) {
-        const runSummary = JSON.parse(jsonMatch[0])
-        expect(runSummary).toMatchObject({
+      expect(JSON.parse(jsonMatch?.[0] as string)).toMatchObject({
+        run: {
+          id: expect.any(String),
+          startTime: expect.any(String),
+          endTime: expect.any(String),
+          duration: expect.any(Number),
           passed: true,
           totalTasks: 1,
           completedTasks: 1,
           failedTasks: 0,
-          taskResults: expect.arrayContaining([
-            expect.objectContaining({
-              task: expect.objectContaining({
-                target: expect.objectContaining({
-                  id: 'homepage',
-                  name: 'Homepage',
-                  url: 'https://example.com',
-                }),
-              }),
-              lighthouseResult: expect.objectContaining({
-                metrics: expect.objectContaining({
-                  performanceScore: 95,
-                  lcp: 1200,
-                  cls: 0.05,
-                }),
-              }),
-            }),
-          ]),
-        })
-      }
+        },
+        targets: [
+          {
+            id: expect.any(String),
+            url: 'https://example.com',
+            name: 'Homepage',
+            tags: ['main'],
+            profile: 'desktop',
+            status: 'passed',
+            metrics: { lcp: 1200, cls: 0.05, fid: 50, inp: 75, tbt: 100, fcp: 800, performanceScore: 95 },
+            assertions: { passed: true, failureCount: 0, results: [] },
+          },
+        ],
+        journeys: [],
+        environments: [],
+        meta: { version: '1.0.0', generatedAt: expect.any(String), generator: 'faros-json-reporter' },
+      })
 
       // Should not contain human-readable output in quiet mode (except the JSON)
       expect(logs).not.toContain('⏳ Running:')

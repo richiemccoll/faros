@@ -74,6 +74,8 @@ export interface RunOptionsAdvanced extends Partial<PerfConfig> {
   onTaskComplete?: (result: LighthouseResult) => void
   onTaskFailed?: (task: Task, error: Error) => void
   onComplete?: (summary: RunSummary) => void
+  /** Suppress non-essential output */
+  quiet?: boolean
 }
 
 /**

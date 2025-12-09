@@ -26,7 +26,7 @@ import { randomUUID } from 'crypto'
 export async function run(options: RunOptions | RunOptionsAdvanced): Promise<RunSummary> {
   const config = convertOptionsToConfig(options)
 
-  const runner = createRunner(config)
+  const runner = createRunner(config, { quiet: options.quiet })
 
   setupCallbacks(runner, options)
 

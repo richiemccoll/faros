@@ -3,7 +3,7 @@ import type { CommandModule } from 'yargs'
 import { killAll } from 'chrome-launcher'
 import { loadConfig } from '../../core/config'
 import { createRunner } from '../../core/runner'
-import { CLIReporter } from '../../reporting'
+import { CLIReporter, JSONReporter } from '../../reporting'
 import { logger } from '../../logger'
 import type { PerfConfig, LighthouseResult, Task, RunSummary } from '../../core/types'
 
@@ -16,6 +16,8 @@ interface GlobalOptions {
 interface RunCommandArgs extends GlobalOptions {
   target?: string
   profile?: string
+  format?: 'cli' | 'json'
+  output?: string
 }
 
 export const runCommand: CommandModule<GlobalOptions, RunCommandArgs> = {
@@ -31,10 +33,22 @@ export const runCommand: CommandModule<GlobalOptions, RunCommandArgs> = {
         type: 'string',
         describe: 'Use only the specified profile (by name)',
       })
+      .option('format', {
+        type: 'string',
+        choices: ['cli', 'json'] as const,
+        default: 'cli' as const,
+        describe: 'Output format for results',
+      })
+      .option('output', {
+        type: 'string',
+        describe: 'Output file path (default: stdout)',
+      })
       .example('$0 run', 'Run all targets with all profiles')
       .example('$0 run --target homepage', 'Run only the homepage target')
       .example('$0 run --profile mobile', 'Run all targets with mobile profile only')
       .example('$0 run --target homepage --profile desktop', 'Run homepage with desktop profile only')
+      .example('$0 run --format json', 'Output results as JSON')
+      .example('$0 run --format json --output report.json', 'Save JSON report to file')
   },
   handler: async (argv) => {
     try {
@@ -47,7 +61,10 @@ export const runCommand: CommandModule<GlobalOptions, RunCommandArgs> = {
 }
 
 async function runPerformanceTests(args: RunCommandArgs): Promise<void> {
-  logger.info('Loading configuration...')
+  if (!args.quiet) {
+    logger.info('Loading configuration...')
+  }
+
   const config = await loadConfig({
     configPath: args.config,
   })
@@ -71,7 +88,7 @@ async function runPerformanceTests(args: RunCommandArgs): Promise<void> {
     }
   }
 
-  const runner = createRunner(filteredConfig)
+  const runner = createRunner(filteredConfig, { quiet: args.quiet })
 
   // Ensure cleanup on process exit
   const cleanup = async () => {
@@ -94,19 +111,35 @@ async function runPerformanceTests(args: RunCommandArgs): Promise<void> {
     // Set up event handlers for progress reporting
     setupProgressHandlers(runner, args.quiet)
 
-    logger.info(`Running ${filteredConfig.targets.length} targets with concurrency ${filteredConfig.concurrency}...`)
+    if (!args.quiet) {
+      logger.info(`Running ${filteredConfig.targets.length} targets with concurrency ${filteredConfig.concurrency}...`)
+    }
 
     const runSummary = await runner.run()
 
-    if (!args.quiet) {
+    if (args.format === 'json') {
+      const jsonReporter = new JSONReporter({
+        prettyPrint: !args.quiet,
+        includeRawLighthouse: false, // Don't include by default to keep output manageable
+      })
+
+      const output = jsonReporter.generate(runSummary)
+
+      if (args.output) {
+        await jsonReporter.writeFile(runSummary, args.output)
+
+        if (!args.quiet) {
+          logger.info(`JSON report written to ${args.output}`)
+        }
+      } else {
+        console.log(output)
+      }
+    } else if (!args.quiet) {
       const cliReporter = new CLIReporter({
         showColors: true,
         showMetrics: ['lcp', 'cls', 'fid', 'tbt', 'fcp', 'inp', 'performanceScore'],
       })
       cliReporter.print(runSummary)
-    } else {
-      // In quiet mode, output JSON results
-      console.log(JSON.stringify(runSummary, null, 2))
     }
 
     // ensure we kill any Chrome instances
@@ -150,7 +183,9 @@ function filterConfig(config: PerfConfig, args: RunCommandArgs): PerfConfig {
  * Set up progress handlers for the runner
  */
 function setupProgressHandlers(runner: ReturnType<typeof createRunner>, quiet?: boolean): void {
-  if (quiet) return
+  if (quiet) {
+    return
+  }
 
   let taskCount = 0
   let completedTasks = 0

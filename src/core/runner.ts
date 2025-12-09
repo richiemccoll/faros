@@ -24,6 +24,10 @@ export interface RunnerEvents {
 /**
  * Main runner that orchestrates the scheduler and lighthouse launcher
  */
+export interface RunnerOptions {
+  quiet?: boolean
+}
+
 export class Runner extends EventEmitter {
   private scheduler: Scheduler
   private lighthouseLauncher: LighthouseLauncher
@@ -32,10 +36,12 @@ export class Runner extends EventEmitter {
   private assertionEngine: AssertionEngine
   private reportCollector: ReportCollector
   private config: PerfConfig
+  private quiet: boolean
 
-  constructor(config: PerfConfig) {
+  constructor(config: PerfConfig, options: RunnerOptions = {}) {
     super()
     this.config = config
+    this.quiet = options.quiet ?? false
 
     const schedulerConfig: SchedulerConfig = {
       concurrency: config.concurrency,
@@ -81,12 +87,17 @@ export class Runner extends EventEmitter {
       }
 
       const totalTasks = Array.from(tasksByProfile.values()).reduce((sum, tasks) => sum + tasks.length, 0)
-      logger.info(`Starting performance test run with ${totalTasks} task(s) across ${tasksByProfile.size} profile(s)`)
+
+      if (!this.quiet) {
+        logger.info(`Starting performance test run with ${totalTasks} task(s) across ${tasksByProfile.size} profile(s)`)
+      }
       this.emit('runStart', totalTasks)
 
       // Execute tasks sequentially by profile, but in parallel within each profile
       for (const [profileId, tasks] of tasksByProfile) {
-        logger.info(`🔧 Starting profile: ${profileId} (${tasks.length} task(s))`)
+        if (!this.quiet) {
+          logger.info(`🔧 Starting profile: ${profileId} (${tasks.length} task(s))`)
+        }
 
         // Reset scheduler for this profile group
         this.scheduler.stop()
@@ -94,13 +105,17 @@ export class Runner extends EventEmitter {
 
         await this.scheduler.run()
 
-        logger.info(`✅ Completed profile: ${profileId}`)
+        if (!this.quiet) {
+          logger.info(`✅ Completed profile: ${profileId}`)
+        }
       }
 
       this.reportCollector.completeRun()
       const summary = this.reportCollector.getSummary()
 
-      logger.info(`🏁 Performance test run completed. ${summary.totalTasks} task(s) processed`)
+      if (!this.quiet) {
+        logger.info(`🏁 Performance test run completed. ${summary.totalTasks} task(s) processed`)
+      }
       this.emit('runComplete', summary)
 
       return summary
@@ -274,6 +289,6 @@ export class Runner extends EventEmitter {
   }
 }
 
-export function createRunner(config: PerfConfig): Runner {
-  return new Runner(config)
+export function createRunner(config: PerfConfig, options?: RunnerOptions): Runner {
+  return new Runner(config, options)
 }

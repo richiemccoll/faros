@@ -7,8 +7,7 @@ A Modern frontend performance testing framework for Node.js, powered by Lighthou
 - **Comprehensive Core Web Vitals** - Track LCP, CLS, FCP, FID, INP, and TBT
 - **Concurrent Performance Testing** - Test multiple URLs simultaneously with configurable concurrency
 - **Assertions-first:** Define budgets and change limits (LCP, CLS, perf score, etc.) and fail builds when they’re broken.
-- **Multiple Report Formats** - CLI, JSON, HTML, and JUnit output formats
-- **Extensible Plugin System** - Custom plugins for notifications, baseline comparison, and more
+- **Multiple Report Formats** - CLI and JSON output formats
 
 ## Installation
 
@@ -69,16 +68,13 @@ faros run --target homepage --profile desktop
 # Load custom config file
 faros run --config custom.config.json
 
-# Verbose output with detailed logging
-faros run --verbose
-
 # Quiet mode - JSON output only
-faros run --quiet
+faros run --format json --quiet
 ```
 
 **Output examples:**
 
-**Single Profile:**
+**Single Profile (CLI Reporter):**
 
 ```
 ℹ Loading configuration...
@@ -102,7 +98,79 @@ home | https://richiemccoll.com | PASS   | 932ms | 0.000 | 146ms | 127ms | 932ms
 Tasks: 1 total, 1 completed, 0 failed
 ```
 
-**Multiple Profiles:**
+**Single Profile (JSON Reporter):**
+
+```json
+{
+  "run": {
+    "id": "run-1765277548885",
+    "startTime": "2025-12-09T10:52:28.885Z",
+    "endTime": "2025-12-09T10:52:38.637Z",
+    "duration": 9752,
+    "passed": true,
+    "totalTasks": 2,
+    "completedTasks": 2,
+    "failedTasks": 0
+  },
+  "targets": [
+    {
+      "id": "home_default_1765277548885_8xej0btn7",
+      "url": "https://richiemccoll.com",
+      "name": "Homepage",
+      "tags": ["critical"],
+      "profile": "default",
+      "status": "passed",
+      "metrics": {
+        "lcp": 360.733,
+        "cls": 0,
+        "fid": 45,
+        "tbt": 0,
+        "fcp": 360.733,
+        "performanceScore": 100
+      },
+      "assertions": {
+        "passed": true,
+        "failureCount": 0,
+        "results": [
+          {
+            "metric": "lcp",
+            "passed": true,
+            "actual": 360.733,
+            "expected": {
+              "max": 2500
+            }
+          },
+          {
+            "metric": "cls",
+            "passed": true,
+            "actual": 0,
+            "expected": {
+              "max": 0.1
+            }
+          },
+          {
+            "metric": "performanceScore",
+            "passed": true,
+            "actual": 100,
+            "expected": {
+              "min": 90
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "journeys": [],
+  "environments": [],
+  "meta": {
+    "version": "1.0.0",
+    "generatedAt": "2025-12-09T10:52:38.638Z",
+    "generator": "faros-json-reporter"
+  }
+}
+```
+
+**Multiple Profiles (CLI Reporter):**
 
 ```
 ℹ Starting performance test run with 3 task(s) across 2 profile(s)
@@ -401,25 +469,6 @@ pnpm format:fix
 
 # Lint code
 pnpm lint:fix
-```
-
-### Testing
-
-The project includes comprehensive test coverage:
-
-- **Unit Tests** - Core functionality (config loading, validation, types)
-- **Integration Tests** - End-to-end CLI workflows with real file I/O
-- **Code Coverage** - Enforced minimums (80% branches, functions, lines, statements)
-
-```bash
-# Run all tests with coverage report
-pnpm test
-
-# Run specific test suite
-pnpm test src/core/config.test.ts
-
-# Run integration tests
-pnpm test src/cli/cli.integration.test.ts
 ```
 
 ## License
