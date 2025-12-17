@@ -443,4 +443,100 @@ describe('faros API', () => {
     expect(result.taskResults).toHaveLength(1)
     expect(result.taskResults[0]?.lighthouseResult).toBeDefined()
   })
+
+  test('run with baseline data and delta assertions', async () => {
+    const mockedLauncher = jest.mocked(await import('./lighthouse/launcher')) as unknown as {
+      createLighthouseLauncher: jest.Mock
+      __mockLauncherMethods: {
+        launchChrome: jest.Mock
+        run: jest.Mock
+        kill: jest.Mock
+        cleanup: jest.Mock
+      }
+    }
+
+    // Create lighthouse result with known metrics - use createMockLighthouseResult and override specific audits
+    const mockLighthouseResult = createMockLighthouseResult()
+    mockLighthouseResult.lhr.audits = {
+      ...mockLighthouseResult.lhr.audits,
+      'largest-contentful-paint': {
+        id: 'largest-contentful-paint',
+        numericValue: 2000, // Current: 2000ms
+        score: 0.85,
+        displayValue: '2.0 s',
+      },
+      'cumulative-layout-shift': {
+        id: 'cumulative-layout-shift',
+        numericValue: 0.15, // Current: 0.15
+        score: 0.75,
+        displayValue: '0.15',
+      },
+    }
+
+    const mockMethods = mockedLauncher.__mockLauncherMethods
+    mockMethods.run.mockResolvedValue(mockLighthouseResult)
+
+    const result = await run({
+      targets: TEST_URL,
+      baseline: {
+        data: {
+          version: '1.0.0',
+          targets: [
+            {
+              id: 'homepage',
+              url: TEST_URL,
+              metrics: {
+                lcp: 1500, // Baseline: 1500ms, current: 2000ms = +33% increase
+                cls: 0.1, // Baseline: 0.1, current: 0.15 = +50% increase
+              },
+            },
+          ],
+        },
+        matchBy: 'url',
+      },
+      assertions: {
+        metrics: {
+          lcp: { max: 2500 }, // Basic threshold should pass
+          cls: { max: 0.2 }, // Basic threshold should pass
+        },
+        delta: {
+          deltaMaxPct: 40, // Allow up to 40% increase (33% should pass, 50% should fail)
+        },
+      },
+      timeout: 30000,
+    })
+
+    expect(result.totalTasks).toBe(1)
+    expect(result.taskResults).toHaveLength(1)
+    expect(result.taskResults[0]?.lighthouseResult).toBeDefined()
+    expect(result.taskResults[0]?.assertionReport).toBeDefined()
+
+    const assertions = result.taskResults[0]?.assertionReport
+    if (assertions) {
+      // Should have both metric and delta assertions
+      expect(assertions.results.length).toBeGreaterThan(0)
+
+      // Find delta assertions (should have baseline value and delta fields)
+      const deltaAssertions = assertions.results.filter((r) => r.delta !== undefined)
+      expect(deltaAssertions.length).toBeGreaterThan(0)
+
+      // Verify delta calculation is present
+      const lcpDelta = deltaAssertions.find((r) => r.metric === 'lcp')
+      if (lcpDelta && lcpDelta.delta) {
+        expect(lcpDelta.delta.baseline).toBe(1500)
+        expect(lcpDelta.delta.change).toBe(500) // 2000 - 1500
+        expect(lcpDelta.delta.changePct).toBeCloseTo(33.33, 1) // (500/1500)*100
+        expect(lcpDelta.passed).toBe(true) // 33% < 40% threshold
+      }
+
+      // CLS should fail delta assertion (50% > 40% threshold)
+      const clsDelta = deltaAssertions.find((r) => r.metric === 'cls')
+      if (clsDelta && clsDelta.delta) {
+        expect(clsDelta.delta.baseline).toBe(0.1)
+        expect(clsDelta.delta.change).toBe(0.05) // 0.15 - 0.1
+        expect(clsDelta.delta.changePct).toBe(50) // (0.05/0.1)*100
+        expect(clsDelta.passed).toBe(false) // 50% > 40% threshold
+      }
+    }
+  })
 })

@@ -13,14 +13,6 @@ export const OutputConfigSchema = z.object({
 
 export type OutputConfig = z.infer<typeof OutputConfigSchema>
 
-// Plugin configuration
-export const PluginConfigSchema = z.object({
-  name: z.string(),
-  options: z.record(z.string(), z.unknown()).optional(),
-})
-
-export type PluginConfig = z.infer<typeof PluginConfigSchema>
-
 // Main configuration object
 export const PerfConfigSchema = z.object({
   targets: z.array(TargetSchema).min(1, 'At least one target is required'),
@@ -32,7 +24,6 @@ export const PerfConfigSchema = z.object({
   assertions: AssertionConfigSchema.optional(),
   baseline: BaselineConfigSchema.optional(),
   output: OutputConfigSchema.optional(),
-  plugins: z.array(PluginConfigSchema).default([]),
   lighthouseOptions: z.record(z.string(), z.unknown()).optional(), // Global Lighthouse options
 })
 

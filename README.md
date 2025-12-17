@@ -34,7 +34,6 @@ npm i faros --save
       "id": "home",
       "url": "https://example.com",
       "name": "Homepage",
-      "tags": ["critical"]
     }
   ],
   "defaultProfile": "mobileSlow3G",
@@ -287,9 +286,6 @@ interface PerfConfig {
     formats?: Array<'cli' | 'json' | 'html' | 'junit'>
     includeRawLighthouse?: boolean
   }
-
-  // Optional: Plugin system
-  plugins?: PluginConfig[]
 }
 ```
 

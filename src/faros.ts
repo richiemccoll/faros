@@ -1,5 +1,5 @@
 import { createRunner } from './core/runner'
-import type { PerfConfig, Target, RunSummary, Task, MetricThresholds } from './core/types'
+import type { PerfConfig, Target, RunSummary, Task, MetricThresholds, AssertionConfig } from './core/types'
 import type { RunOptions, RunOptionsAdvanced } from './api'
 import { randomUUID } from 'crypto'
 
@@ -99,37 +99,51 @@ function convertOptionsToConfig(options: RunOptions | RunOptionsAdvanced): PerfC
     concurrency: runOptions.concurrency || 1,
     maxRetries: runOptions.maxRetries || 2,
     timeout: runOptions.timeout || 30000,
-    plugins: [],
   }
 
   if (runOptions.assertions) {
-    const metrics: Partial<MetricThresholds> = {}
-
-    // Convert simple assertions to metrics format
     const assertions = runOptions.assertions
-    if (assertions.performanceScore) {
-      metrics.performanceScore = assertions.performanceScore
-    }
-    if (assertions.lcp) {
-      metrics.lcp = assertions.lcp
-    }
-    if (assertions.cls) {
-      metrics.cls = assertions.cls
-    }
-    if (assertions.fid) {
-      metrics.fid = assertions.fid
-    }
-    if (assertions.inp) {
-      metrics.inp = assertions.inp
-    }
-    if (assertions.tbt) {
-      metrics.tbt = assertions.tbt
-    }
-    if (assertions.fcp) {
-      metrics.fcp = assertions.fcp
-    }
 
-    config.assertions = { metrics }
+    if (typeof assertions === 'object' && ('metrics' in assertions || 'delta' in assertions)) {
+      config.assertions = assertions as AssertionConfig
+    } else {
+      const metrics: Partial<MetricThresholds> = {}
+
+      // Type assertion to tell TS we're in the simple threshold branch
+      const simpleAssertions = assertions as {
+        performanceScore?: { min?: number; max?: number }
+        lcp?: { max?: number }
+        cls?: { max?: number }
+        fid?: { max?: number }
+        inp?: { max?: number }
+        tbt?: { max?: number }
+        fcp?: { max?: number }
+      }
+
+      if (simpleAssertions.performanceScore) {
+        metrics.performanceScore = simpleAssertions.performanceScore
+      }
+      if (simpleAssertions.lcp) {
+        metrics.lcp = simpleAssertions.lcp
+      }
+      if (simpleAssertions.cls) {
+        metrics.cls = simpleAssertions.cls
+      }
+      if (simpleAssertions.fid) {
+        metrics.fid = simpleAssertions.fid
+      }
+      if (simpleAssertions.inp) {
+        metrics.inp = simpleAssertions.inp
+      }
+      if (simpleAssertions.tbt) {
+        metrics.tbt = simpleAssertions.tbt
+      }
+      if (simpleAssertions.fcp) {
+        metrics.fcp = simpleAssertions.fcp
+      }
+
+      config.assertions = { metrics }
+    }
   }
 
   // Add baseline config if provided

@@ -4,11 +4,6 @@ import { logger } from '../../logger'
 
 /**
  * Baseline provider interface for extensible baseline sources
- * Plugins can implement this interface to provide baselines from:
- * - Git history / previous commits
- * - Stored artifacts (S3, database)
- * - CI/CD pipeline artifacts
- * - External monitoring systems
  */
 export interface BaselineProvider {
   /**

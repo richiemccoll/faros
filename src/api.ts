@@ -29,28 +29,47 @@ export interface RunOptions {
   timeout?: number
 
   /** Performance assertions/budgets */
-  assertions?: {
-    /** Performance score threshold (0-100) */
-    performanceScore?: { min?: number; max?: number }
+  assertions?:
+    | {
+        /** Performance score threshold (0-100) */
+        performanceScore?: { min?: number; max?: number }
 
-    /** Largest Contentful Paint in milliseconds */
-    lcp?: { max?: number }
+        /** Largest Contentful Paint in milliseconds */
+        lcp?: { max?: number }
 
-    /** Cumulative Layout Shift */
-    cls?: { max?: number }
+        /** Cumulative Layout Shift */
+        cls?: { max?: number }
 
-    /** First Input Delay in milliseconds */
-    fid?: { max?: number }
+        /** First Input Delay in milliseconds */
+        fid?: { max?: number }
 
-    /** Interaction to Next Paint in milliseconds */
-    inp?: { max?: number }
+        /** Interaction to Next Paint in milliseconds */
+        inp?: { max?: number }
 
-    /** Total Blocking Time in milliseconds */
-    tbt?: { max?: number }
+        /** Total Blocking Time in milliseconds */
+        tbt?: { max?: number }
 
-    /** First Contentful Paint in milliseconds */
-    fcp?: { max?: number }
-  }
+        /** First Contentful Paint in milliseconds */
+        fcp?: { max?: number }
+      }
+    | {
+        /** Structured assertion config with metrics and delta assertions */
+        metrics?: {
+          performanceScore?: { min?: number; max?: number }
+          lcp?: { max?: number }
+          cls?: { max?: number }
+          fid?: { max?: number }
+          inp?: { max?: number }
+          tbt?: { max?: number }
+          fcp?: { max?: number }
+        }
+        /** Delta-based assertions for baseline comparison */
+        delta?: {
+          deltaMaxPct?: number // Max % increase allowed
+          deltaMin?: number // Min absolute change allowed
+          deltaMaxMs?: number // Max millisecond increase for timing metrics
+        }
+      }
 
   /** Baseline configuration for regression testing */
   baseline?: PerfConfig['baseline']

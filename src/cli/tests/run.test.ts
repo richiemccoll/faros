@@ -222,7 +222,6 @@ describe('run command', () => {
         maxRetries: 1,
         timeout: 30000,
         defaultProfile: 'desktop',
-        plugins: [],
         output: {
           dir: './test-results',
           formats: ['cli'],
@@ -455,7 +454,6 @@ describe('run command', () => {
       maxRetries: 1,
       timeout: 30000,
       defaultProfile: 'desktop',
-      plugins: [],
       output: {
         dir: './custom-results',
         formats: ['cli'],
@@ -530,7 +528,6 @@ describe('run command', () => {
         maxRetries: 1,
         timeout: 30000,
         defaultProfile: 'desktop',
-        plugins: [],
         output: {
           dir: './test-results',
           formats: ['cli'],
