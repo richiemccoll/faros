@@ -1,6 +1,8 @@
 /* eslint-disable no-console */
 import type { CommandModule } from 'yargs'
 import { killAll } from 'chrome-launcher'
+import { mkdir } from 'node:fs/promises'
+import { join } from 'node:path'
 import { loadConfig } from '../../core/config'
 import { createRunner } from '../../core/runner'
 import { CLIReporter, JSONReporter } from '../../reporting'
@@ -120,7 +122,7 @@ async function runPerformanceTests(args: RunCommandArgs): Promise<void> {
     if (args.format === 'json') {
       const jsonReporter = new JSONReporter({
         prettyPrint: !args.quiet,
-        includeRawLighthouse: false, // Don't include by default to keep output manageable
+        includeRawLighthouse: filteredConfig.output?.includeRawLighthouse ?? false,
       })
 
       const output = jsonReporter.generate(runSummary)
@@ -134,12 +136,45 @@ async function runPerformanceTests(args: RunCommandArgs): Promise<void> {
       } else {
         console.log(output)
       }
-    } else if (!args.quiet) {
-      const cliReporter = new CLIReporter({
-        showColors: true,
-        showMetrics: ['lcp', 'cls', 'fid', 'tbt', 'fcp', 'inp', 'performanceScore'],
-      })
-      cliReporter.print(runSummary)
+    } else {
+      if (!args.quiet) {
+        const cliReporter = new CLIReporter({
+          showColors: true,
+          showMetrics: ['lcp', 'cls', 'fid', 'tbt', 'fcp', 'inp', 'performanceScore'],
+        })
+        cliReporter.print(runSummary)
+      }
+    }
+
+    const outputConfig = filteredConfig.output
+
+    if (!args.quiet && outputConfig) {
+      logger.info(`Output config: ${JSON.stringify(outputConfig)}`)
+    }
+
+    if (outputConfig && outputConfig.formats && outputConfig.formats.length > 0) {
+      const outputDir = outputConfig.dir || './perf-results'
+
+      // Ensure output directory exists
+      await mkdir(outputDir, { recursive: true })
+
+      for (const format of outputConfig.formats) {
+        if (format === 'json') {
+          const jsonReporter = new JSONReporter({
+            prettyPrint: true,
+            includeRawLighthouse: outputConfig.includeRawLighthouse ?? false,
+          })
+
+          const filename = outputConfig.filename || 'perf-results.json'
+          const outputPath = join(outputDir, filename)
+
+          await jsonReporter.writeFile(runSummary, outputPath)
+
+          if (!args.quiet) {
+            logger.info(`JSON report written to ${outputPath}`)
+          }
+        }
+      }
     }
 
     // ensure we kill any Chrome instances

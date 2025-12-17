@@ -33,7 +33,7 @@ npm i faros --save
     {
       "id": "home",
       "url": "https://example.com",
-      "name": "Homepage",
+      "name": "Homepage"
     }
   ],
   "defaultProfile": "mobileSlow3G",
@@ -475,7 +475,7 @@ The `_resolvedProfiles` section shows the final configuration for each profile a
     }
   },
   "output": {
-    "formats": ["cli", "json", "html"],
+    "formats": ["json"],
     "includeRawLighthouse": true
   }
 }

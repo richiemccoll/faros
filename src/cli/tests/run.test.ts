@@ -222,11 +222,6 @@ describe('run command', () => {
         maxRetries: 1,
         timeout: 30000,
         defaultProfile: 'desktop',
-        output: {
-          dir: './test-results',
-          formats: ['cli'],
-          includeRawLighthouse: false,
-        },
       }),
     )
 
@@ -528,11 +523,6 @@ describe('run command', () => {
         maxRetries: 1,
         timeout: 30000,
         defaultProfile: 'desktop',
-        output: {
-          dir: './test-results',
-          formats: ['cli'],
-          includeRawLighthouse: false,
-        },
         assertions: {
           global: {
             metrics: {
