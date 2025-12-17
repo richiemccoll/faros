@@ -9,6 +9,7 @@ import { MetricExtractor, createMetricExtractor } from '../lighthouse/metric-ext
 import { ProfileRegistry } from '../lighthouse/profile-registry'
 import { AssertionEngine, createAssertionEngine, AssertionContext } from '../assertions/engine'
 import { ReportCollector, TaskResult } from '../reporting/report-collector'
+import { resolveBaseline, getBaselineMetrics, ResolvedBaseline } from './utils/resolve-baseline'
 import { logger } from '../logger'
 
 export interface RunnerEvents {
@@ -35,6 +36,7 @@ export class Runner extends EventEmitter {
   private profileRegistry: ProfileRegistry
   private assertionEngine: AssertionEngine
   private reportCollector: ReportCollector
+  private resolvedBaseline: ResolvedBaseline | null = null
   private config: PerfConfig
   private quiet: boolean
 
@@ -80,6 +82,16 @@ export class Runner extends EventEmitter {
    */
   async run(): Promise<RunSummary> {
     try {
+      if (this.config.baseline) {
+        this.resolvedBaseline = await resolveBaseline(this.config.baseline, process.cwd())
+
+        if (this.resolvedBaseline) {
+          if (!this.quiet) {
+            logger.info(`📊 Loaded baseline file - version:${this.resolvedBaseline.data.version})`)
+          }
+        }
+      }
+
       const tasksByProfile = this.generateTasksByProfile()
 
       if (tasksByProfile.size === 0) {
@@ -203,11 +215,24 @@ export class Runner extends EventEmitter {
     lighthouseResult: LighthouseResult,
   ): Promise<AssertionReport | undefined> {
     try {
+      const baselineMetrics = getBaselineMetrics(
+        this.resolvedBaseline,
+        task.target.id,
+        task.target.url,
+        this.config.baseline?.matchBy ?? 'id',
+      )
+
+      const baselineRecord = baselineMetrics
+        ? (Object.fromEntries(
+            Object.entries(baselineMetrics).filter(([_, value]) => typeof value === 'number'),
+          ) as Record<string, number>)
+        : undefined
+
       const context: AssertionContext = {
         task,
         lighthouseResult,
         config: this.config.assertions!,
-        baseline: undefined, // TODO: Add baseline provider support
+        baseline: baselineRecord,
       }
 
       const assertionReport = await this.assertionEngine.evaluate(context)

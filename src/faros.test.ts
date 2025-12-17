@@ -1,3 +1,5 @@
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import { run, createTarget, createTargets, validateConfig } from '../src'
 
 jest.mock('chrome-launcher', () => ({
@@ -318,5 +320,127 @@ describe('faros API', () => {
     if (callbacks.onTaskComplete.mock.calls.length > 0) {
       expect(callbacks.onTaskComplete).toHaveBeenCalled()
     }
+  })
+
+  test('run with baseline data (inline)', async () => {
+    const mockedLauncher = jest.mocked(await import('./lighthouse/launcher')) as unknown as {
+      createLighthouseLauncher: jest.Mock
+      __mockLauncherMethods: {
+        launchChrome: jest.Mock
+        run: jest.Mock
+        kill: jest.Mock
+        cleanup: jest.Mock
+      }
+    }
+
+    const mockLighthouseResult = createMockLighthouseResult()
+    const mockMethods = mockedLauncher.__mockLauncherMethods
+    mockMethods.run.mockResolvedValue(mockLighthouseResult)
+
+    const result = await run({
+      targets: TEST_URL,
+      baseline: {
+        data: {
+          version: '1.0.0',
+          targets: [
+            {
+              id: 'homepage',
+              url: TEST_URL,
+              metrics: { lcp: 2500 },
+            },
+          ],
+        },
+        matchBy: 'id',
+      },
+      timeout: 30000,
+    })
+
+    expect(result.totalTasks).toBe(1)
+    expect(result.taskResults).toHaveLength(1)
+  })
+
+  test('run with baseline data (file loading)', async () => {
+    // Create a temporary baseline file
+    const tempBaselineFile = path.join(process.cwd(), 'test-baseline.json')
+    const baselineData = {
+      version: '1.0.0',
+      targets: [
+        {
+          id: 'homepage',
+          url: TEST_URL,
+          metrics: { lcp: 2500, cls: 0.1, fcp: 1200 },
+        },
+      ],
+    }
+
+    await fs.writeFile(tempBaselineFile, JSON.stringify(baselineData, null, 2))
+
+    try {
+      const mockedLauncher = jest.mocked(await import('./lighthouse/launcher')) as unknown as {
+        createLighthouseLauncher: jest.Mock
+        __mockLauncherMethods: {
+          launchChrome: jest.Mock
+          run: jest.Mock
+          kill: jest.Mock
+          cleanup: jest.Mock
+        }
+      }
+
+      const mockLighthouseResult = createMockLighthouseResult()
+      const mockMethods = mockedLauncher.__mockLauncherMethods
+      mockMethods.run.mockResolvedValue(mockLighthouseResult)
+
+      const result = await run({
+        targets: TEST_URL,
+        baseline: {
+          file: './test-baseline.json',
+          matchBy: 'url',
+        },
+        timeout: 30000,
+      })
+
+      // Verify successful execution with baseline file
+      expect(result.totalTasks).toBe(1)
+      expect(result.taskResults).toHaveLength(1)
+    } finally {
+      // Clean up the temporary file
+      try {
+        await fs.unlink(tempBaselineFile)
+      } catch (error) {
+        // Ignore cleanup errors
+      }
+    }
+  })
+
+  test('run with baseline data (non-existent file - graceful error handling)', async () => {
+    const mockedLauncher = jest.mocked(await import('./lighthouse/launcher')) as unknown as {
+      createLighthouseLauncher: jest.Mock
+      __mockLauncherMethods: {
+        launchChrome: jest.Mock
+        run: jest.Mock
+        kill: jest.Mock
+        cleanup: jest.Mock
+      }
+    }
+
+    const mockLighthouseResult = createMockLighthouseResult()
+    const mockMethods = mockedLauncher.__mockLauncherMethods
+    mockMethods.run.mockResolvedValue(mockLighthouseResult)
+
+    // Test with a non-existent file - should continue gracefully
+    const result = await run({
+      targets: TEST_URL,
+      baseline: {
+        file: './non-existent-baseline.json',
+        matchBy: 'url',
+      },
+      timeout: 30000,
+    })
+
+    // Should run successfully even if baseline file doesn't exist
+    // (baseline resolution returns null and runner continues without baseline)
+    expect(result.totalTasks).toBe(1)
+    expect(result.taskResults).toHaveLength(1)
+    expect(result.taskResults[0]?.lighthouseResult).toBeDefined()
   })
 })

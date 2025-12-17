@@ -52,6 +52,9 @@ export interface RunOptions {
     fcp?: { max?: number }
   }
 
+  /** Baseline configuration for regression testing */
+  baseline?: PerfConfig['baseline']
+
   /** Progress callbacks */
   onStart?: (taskCount: number) => void
   onTaskStart?: (task: Task) => void

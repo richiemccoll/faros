@@ -132,6 +132,14 @@ function convertOptionsToConfig(options: RunOptions | RunOptionsAdvanced): PerfC
     config.assertions = { metrics }
   }
 
+  // Add baseline config if provided
+  if ('baseline' in runOptions && runOptions.baseline) {
+    config.baseline = {
+      ...runOptions.baseline,
+      matchBy: runOptions.baseline.matchBy || 'id',
+    }
+  }
+
   // Add output config if needed
   if (runOptions.includeRawLighthouse) {
     config.output = {
