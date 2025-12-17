@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { TargetSchema, ProfileRefSchema } from './target'
 import { AssertionConfigSchema } from './assertions'
+import { BaselineConfigSchema } from './baseline'
 
 // Output configuration for reports
 export const OutputConfigSchema = z.object({
@@ -29,6 +30,7 @@ export const PerfConfigSchema = z.object({
   maxRetries: z.number().int().nonnegative().default(2),
   timeout: z.number().int().positive().default(60000), // 60 seconds
   assertions: AssertionConfigSchema.optional(),
+  baseline: BaselineConfigSchema.optional(),
   output: OutputConfigSchema.optional(),
   plugins: z.array(PluginConfigSchema).default([]),
   lighthouseOptions: z.record(z.string(), z.unknown()).optional(), // Global Lighthouse options

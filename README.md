@@ -273,6 +273,14 @@ interface PerfConfig {
   // Optional: Performance assertions
   assertions?: AssertionConfig
 
+  // Optional: Baseline for regression testing
+  baseline?: {
+    file?: string // Path to baseline JSON file
+    data?: BaselineData // Inline baseline data
+    matchBy?: 'id' | 'url' // Default: 'id'
+    optional?: boolean // Default: true
+  }
+
   // Optional: Output configuration
   output?: {
     dir?: string // Default: './perf-results'
@@ -311,6 +319,40 @@ Configuration is merged in this order (later sources override earlier ones):
 2. **Configuration file** (`perf.config.*`)
 3. **Environment variables** (`PERF_*`)
 4. **CLI arguments** (highest priority)
+
+### Baseline Configuration
+
+Faros supports baseline comparison for regression testing. Baselines can be provided via file or inline data:
+
+```typescript
+{
+  "baseline": {
+    "file": "./baseline.json", // Path to baseline JSON file
+    "matchBy": "id", // Match targets by "id" or "url"
+    "optional": true // Don't fail if baseline missing
+  }
+  // or
+  "baseline": {
+    "data": { // Inline baseline data
+      "version": "1.0.0",
+      "targets": [
+        {
+          "id": "home",
+          "url": "https://example.com",
+          "metrics": {
+            "lcp": 2500,
+            "cls": 0.05,
+            "performanceScore": 85
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+**Baseline JSON Format:**
+The baseline format is compatible with Faros JSON reporter output. You can generate a baseline by running tests with `--format json` and using the output as your baseline file.
 
 ## Lighthouse Profiles
 

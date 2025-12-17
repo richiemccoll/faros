@@ -162,5 +162,152 @@ describe('Config loader', () => {
 
       await expect(loadConfig({ cwd: testDir })).rejects.toThrow()
     })
+
+    it('should accept valid baseline file configuration', async () => {
+      const configContent = {
+        targets: [{ id: 'test', url: 'https://example.com' }],
+        baseline: {
+          file: './baseline.json',
+          matchBy: 'id',
+          optional: false,
+        },
+      }
+
+      await writeFile(join(testDir, 'perf.config.json'), JSON.stringify(configContent))
+
+      const config = await loadConfig({ cwd: testDir })
+
+      expect(config.baseline?.file).toBe('./baseline.json')
+      expect(config.baseline?.matchBy).toBe('id')
+    })
+
+    it('should accept valid baseline data configuration', async () => {
+      const baselineData = {
+        version: '1.0.0',
+        generatedAt: '2023-01-01T00:00:00Z',
+        targets: [
+          {
+            id: 'test',
+            url: 'https://example.com',
+            metrics: {
+              lcp: 2500,
+              cls: 0.1,
+              performanceScore: 85,
+            },
+          },
+        ],
+      }
+
+      const configContent = {
+        targets: [{ id: 'test', url: 'https://example.com' }],
+        baseline: {
+          data: baselineData,
+          matchBy: 'url',
+        },
+      }
+
+      await writeFile(join(testDir, 'perf.config.json'), JSON.stringify(configContent))
+
+      const config = await loadConfig({ cwd: testDir })
+
+      expect(config.baseline?.data).toEqual(baselineData)
+      expect(config.baseline?.matchBy).toBe('url')
+    })
+
+    it('should apply default values for baseline config', async () => {
+      const configContent = {
+        targets: [{ id: 'test', url: 'https://example.com' }],
+        baseline: {
+          file: './baseline.json',
+        },
+      }
+
+      await writeFile(join(testDir, 'perf.config.json'), JSON.stringify(configContent))
+
+      const config = await loadConfig({ cwd: testDir })
+
+      expect(config.baseline?.matchBy).toBe('id') // default
+    })
+
+    it('should reject baseline config with neither file nor data', async () => {
+      const configContent = {
+        targets: [{ id: 'test', url: 'https://example.com' }],
+        baseline: {
+          matchBy: 'id',
+        },
+      }
+
+      await writeFile(join(testDir, 'perf.config.json'), JSON.stringify(configContent))
+
+      await expect(loadConfig({ cwd: testDir })).rejects.toThrow('Configuration validation failed')
+    })
+
+    it('should reject baseline config with invalid matchBy value', async () => {
+      const configContent = {
+        targets: [{ id: 'test', url: 'https://example.com' }],
+        baseline: {
+          file: './baseline.json',
+          matchBy: 'invalid',
+        },
+      }
+
+      await writeFile(join(testDir, 'perf.config.json'), JSON.stringify(configContent))
+
+      await expect(loadConfig({ cwd: testDir })).rejects.toThrow()
+    })
+
+    it('should reject baseline data with invalid structure', async () => {
+      const invalidBaselineData = {
+        version: '1.0.0',
+        targets: [
+          {
+            id: 'test',
+            // Missing url
+            metrics: {
+              lcp: 'invalid-number', // Should be number
+            },
+          },
+        ],
+      }
+
+      const configContent = {
+        targets: [{ id: 'test', url: 'https://example.com' }],
+        baseline: {
+          data: invalidBaselineData,
+        },
+      }
+
+      await writeFile(join(testDir, 'perf.config.json'), JSON.stringify(configContent))
+
+      await expect(loadConfig({ cwd: testDir })).rejects.toThrow()
+    })
+
+    it('should accept baseline config with both file and data (should pass refinement)', async () => {
+      const baselineData = {
+        version: '1.0.0',
+        targets: [
+          {
+            id: 'test',
+            url: 'https://example.com',
+            metrics: { lcp: 2500 },
+          },
+        ],
+      }
+
+      const configContent = {
+        targets: [{ id: 'test', url: 'https://example.com' }],
+        baseline: {
+          file: './baseline.json',
+          data: baselineData,
+        },
+      }
+
+      await writeFile(join(testDir, 'perf.config.json'), JSON.stringify(configContent))
+
+      const config = await loadConfig({ cwd: testDir })
+
+      expect(config.baseline?.file).toBe('./baseline.json')
+      expect(config.baseline?.data).toEqual(baselineData)
+    })
   })
 })
