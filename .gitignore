@@ -58,3 +58,5 @@ bin/run
 dist
 internal-docs
 tmp
+perf-results
+perf.config.json

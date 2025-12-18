@@ -163,6 +163,172 @@ describe('Config loader', () => {
       await expect(loadConfig({ cwd: testDir })).rejects.toThrow()
     })
 
+    it('should accept valid auth configuration on targets', async () => {
+      const configContent = {
+        targets: [
+          {
+            id: 'authenticated-page',
+            url: 'https://example.com/dashboard',
+            name: 'Dashboard',
+            auth: {
+              headers: {
+                Authorization: 'Bearer ${FAROS_AUTH_TOKEN}',
+                'X-API-Key': 'test-key',
+              },
+              cookies: [
+                {
+                  name: 'session',
+                  value: '${FAROS_SESSION_COOKIE}',
+                  domain: 'example.com',
+                  secure: true,
+                },
+              ],
+            },
+          },
+        ],
+      }
+
+      await writeFile(join(testDir, 'perf.config.json'), JSON.stringify(configContent))
+
+      const config = await loadConfig({ cwd: testDir })
+
+      expect(config.targets).toHaveLength(1)
+      expect(config.targets[0]?.auth?.headers?.Authorization).toBe('Bearer ${FAROS_AUTH_TOKEN}')
+      expect(config.targets[0]?.auth?.cookies?.[0]?.name).toBe('session')
+    })
+
+    it('should accept valid auth configuration on profiles', async () => {
+      const configContent = {
+        targets: [{ id: 'test', url: 'https://example.com' }],
+        profiles: {
+          authenticated: {
+            id: 'authenticated',
+            name: 'Authenticated Profile',
+            auth: {
+              headers: {
+                Authorization: 'Bearer profile-token',
+              },
+            },
+          },
+        },
+      }
+
+      await writeFile(join(testDir, 'perf.config.json'), JSON.stringify(configContent))
+
+      const config = await loadConfig({ cwd: testDir })
+
+      expect(config.profiles?.authenticated?.auth?.headers?.Authorization).toBe('Bearer profile-token')
+    })
+
+    it('should reject invalid auth configuration with empty cookie names', async () => {
+      const configContent = {
+        targets: [
+          {
+            id: 'test',
+            url: 'https://example.com',
+            auth: {
+              cookies: [
+                {
+                  name: '', // Invalid: empty name
+                  value: 'some-value',
+                },
+              ],
+            },
+          },
+        ],
+      }
+
+      await writeFile(join(testDir, 'perf.config.json'), JSON.stringify(configContent))
+
+      await expect(loadConfig({ cwd: testDir })).rejects.toThrow()
+    })
+
+    it('should reject invalid auth configuration with empty cookie values', async () => {
+      const configContent = {
+        targets: [
+          {
+            id: 'test',
+            url: 'https://example.com',
+            auth: {
+              cookies: [
+                {
+                  name: 'session',
+                  value: '', // Invalid: empty value
+                },
+              ],
+            },
+          },
+        ],
+      }
+
+      await writeFile(join(testDir, 'perf.config.json'), JSON.stringify(configContent))
+
+      await expect(loadConfig({ cwd: testDir })).rejects.toThrow()
+    })
+
+    it('should accept auth configuration with environment variable references', async () => {
+      const configContent = {
+        targets: [
+          {
+            id: 'test',
+            url: 'https://example.com',
+            auth: {
+              headers: {
+                Authorization: 'Bearer ${FAROS_TOKEN}',
+              },
+              cookies: [
+                {
+                  name: 'session',
+                  value: '${FAROS_SESSION}',
+                },
+              ],
+            },
+          },
+        ],
+      }
+
+      await writeFile(join(testDir, 'perf.config.json'), JSON.stringify(configContent))
+
+      const config = await loadConfig({ cwd: testDir })
+
+      expect(config.targets[0]?.auth?.headers?.Authorization).toBe('Bearer ${FAROS_TOKEN}')
+      expect(config.targets[0]?.auth?.cookies?.[0]?.value).toBe('${FAROS_SESSION}')
+    })
+
+    it('should accept both target-level and profile-level auth configurations', async () => {
+      const configContent = {
+        targets: [
+          {
+            id: 'test',
+            url: 'https://example.com',
+            profile: 'authenticated',
+            auth: {
+              headers: {
+                'X-Target-Header': 'target-value',
+              },
+            },
+          },
+        ],
+        profiles: {
+          authenticated: {
+            id: 'authenticated',
+            auth: {
+              headers: {
+                Authorization: 'Bearer profile-token',
+              },
+            },
+          },
+        },
+      }
+
+      await writeFile(join(testDir, 'perf.config.json'), JSON.stringify(configContent))
+
+      const config = await loadConfig({ cwd: testDir })
+
+      expect(config.targets[0]?.auth?.headers?.['X-Target-Header']).toBe('target-value')
+      expect(config.profiles?.authenticated?.auth?.headers?.Authorization).toBe('Bearer profile-token')
+    })
+
     it('should accept valid baseline file configuration', async () => {
       const configContent = {
         targets: [{ id: 'test', url: 'https://example.com' }],
