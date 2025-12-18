@@ -99,6 +99,7 @@ function convertOptionsToConfig(options: RunOptions | RunOptionsAdvanced): PerfC
     concurrency: runOptions.concurrency || 1,
     maxRetries: runOptions.maxRetries || 2,
     timeout: runOptions.timeout || 30000,
+    headless: runOptions.headless ?? true,
   }
 
   if (runOptions.assertions) {

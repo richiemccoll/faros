@@ -403,6 +403,114 @@ faros print-config
 
 The `_resolvedProfiles` section shows the final configuration for each profile after inheritance processing.
 
+## Authentication
+
+Faros supports comprehensive authentication for testing protected routes and applications requiring credentials. Authentication can be configured at both the target level and profile level, with support for headers and cookies.
+
+### Authentication Configuration
+
+Authentication is configured using the `auth` property on targets or profiles:
+
+```typescript
+interface AuthConfig {
+  // HTTP headers (Bearer tokens, API keys, etc.)
+  headers?: Record<string, string>
+
+  // HTTP cookies for session-based authentication
+  cookies?: Array<{
+    name: string
+    value: string
+    domain?: string
+    path?: string
+    httpOnly?: boolean
+    secure?: boolean
+    sameSite?: 'Strict' | 'Lax' | 'None'
+  }>
+}
+```
+
+### Environment Variable Support
+
+Authentication values support environment variable substitution using `${VARIABLE_NAME}` syntax:
+
+```json
+{
+  "targets": [
+    {
+      "id": "protected-page",
+      "url": "https://app.example.com/dashboard",
+      "auth": {
+        "headers": {
+          "Authorization": "Bearer ${AUTH_TOKEN}",
+          "X-API-Key": "${API_KEY}"
+        },
+        "cookies": [
+          {
+            "name": "session",
+            "value": "${SESSION_COOKIE}",
+            "domain": "app.example.com"
+          }
+        ]
+      }
+    }
+  ]
+}
+```
+
+**Environment Variables:**
+
+```bash
+export AUTH_TOKEN="your-bearer-token"
+export API_KEY="your-api-key"
+export SESSION_COOKIE="abc123session"
+
+# Run tests with authentication
+faros run --config auth-config.json
+```
+
+### Target vs Profile Authentication
+
+- **Target-level auth**: Applied to specific targets only
+- **Profile-level auth**: Applied to all targets using that profile
+- **Merged auth**: Target auth overrides profile auth when both are present
+
+```json
+{
+  "targets": [
+    {
+      "id": "admin-panel",
+      "url": "https://app.example.com/admin",
+      "profile": "authenticated",
+      "auth": {
+        "headers": {
+          "X-Admin-Token": "${ADMIN_TOKEN}"
+        }
+      }
+    }
+  ],
+  "profiles": {
+    "authenticated": {
+      "id": "authenticated",
+      "extends": "default",
+      "auth": {
+        "headers": {
+          "Authorization": "Bearer ${USER_TOKEN}"
+        },
+        "cookies": [
+          {
+            "name": "session",
+            "value": "${SESSION_COOKIE}",
+            "domain": "app.example.com",
+            "httpOnly": true,
+            "secure": true
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
 ### Example Configurations
 
 #### Basic Setup

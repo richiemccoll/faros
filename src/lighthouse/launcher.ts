@@ -9,7 +9,9 @@ import { fileURLToPath } from 'node:url'
 
 import { logger } from '../logger'
 import { deepMergeMutable } from '../core/utils/deep-merge'
-import type { Target, ProfileRef } from '../core/types'
+import type { Target, ProfileRef, AuthConfig } from '../core/types'
+import { resolveAuthHeaders, resolveAuthCookies } from '../core/utils/resolve-auth'
+import { authConfigToLighthouseHeaders, authConfigToCDPCookies, CDPCookie } from '../core/utils/merge-auth-config'
 import { ChromePool } from './chrome-pool'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -47,7 +49,7 @@ export class LighthouseLauncher {
 
   constructor(options: LaunchOptions = {}, poolSize?: number) {
     this.options = {
-      headless: true,
+      headless: options.headless ?? true,
       chromeFlags: ['--no-sandbox', '--disable-dev-shm-usage'],
       logLevel: 'error',
       tempDir: path.join(os.tmpdir(), 'faros-lighthouse'),
@@ -74,12 +76,25 @@ export class LighthouseLauncher {
   /**
    * Run Lighthouse audit on a target with a specific profile
    */
-  async run(target: Target, profile: ProfileRef): Promise<LighthouseResult> {
+  async run(target: Target, profile: ProfileRef, authConfig?: AuthConfig): Promise<LighthouseResult> {
     // Acquire a Chrome instance from the pool
     const chrome = await this.chromePool.acquireChrome()
 
     try {
-      const lighthouseConfig = this.buildLighthouseConfig(profile)
+      let lighthouseHeaders: Record<string, string> | undefined
+      let cdpCookies: Array<CDPCookie> | undefined
+
+      if (authConfig) {
+        const resolvedAuthConfig = {
+          headers: authConfig.headers ? resolveAuthHeaders(authConfig.headers) : undefined,
+          cookies: authConfig.cookies ? resolveAuthCookies(authConfig.cookies) : undefined,
+        }
+
+        lighthouseHeaders = authConfigToLighthouseHeaders(resolvedAuthConfig)
+        cdpCookies = authConfigToCDPCookies(resolvedAuthConfig)
+      }
+
+      const lighthouseConfig = this.buildLighthouseConfig(profile, lighthouseHeaders)
       const flags = {
         logLevel: this.options.logLevel,
         output: ['json' as const, 'html' as const],
@@ -111,6 +126,7 @@ export class LighthouseLauncher {
             LH_TARGET_URL: target.url,
             LH_FLAGS: JSON.stringify(flags),
             LH_CONFIG: JSON.stringify(lighthouseConfig),
+            LH_AUTH_COOKIES: cdpCookies ? JSON.stringify(cdpCookies) : undefined,
           },
         })
 
@@ -165,7 +181,7 @@ export class LighthouseLauncher {
   /**
    * Convert ProfileRef to Lighthouse configuration format
    */
-  private buildLighthouseConfig(profile: ProfileRef): Record<string, unknown> {
+  private buildLighthouseConfig(profile: ProfileRef, extraHeaders?: Record<string, string>): Record<string, unknown> {
     const profileSettings = profile.lighthouseConfig?.settings as LighthouseSettings | undefined
 
     // Start with default Lighthouse config structure
@@ -186,6 +202,7 @@ export class LighthouseLauncher {
           height: profileSettings?.emulatedFormFactor === 'mobile' ? 667 : 940,
           deviceScaleFactor: profileSettings?.emulatedFormFactor === 'mobile' ? 2 : 1,
         },
+        extraHeaders: extraHeaders,
       },
     }
 

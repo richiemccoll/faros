@@ -25,6 +25,7 @@ export const PerfConfigSchema = z.object({
   baseline: BaselineConfigSchema.optional(),
   output: OutputConfigSchema.optional(),
   lighthouseOptions: z.record(z.string(), z.unknown()).optional(), // Global Lighthouse options
+  headless: z.boolean().default(true),
 })
 
 export type PerfConfig = z.infer<typeof PerfConfigSchema>

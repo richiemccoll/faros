@@ -128,6 +128,7 @@ describe('faros API', () => {
         id: expect.any(String),
       }),
       expect.any(Object), // profile
+      undefined, // authConfig
     )
 
     expect(result.totalTasks).toBe(1)
@@ -187,6 +188,7 @@ describe('faros API', () => {
         id: expect.any(String),
       }),
       expect.any(Object), // profile
+      undefined, // authConfig
     )
     expect(mockMethods.run).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -194,6 +196,7 @@ describe('faros API', () => {
         id: expect.any(String),
       }),
       expect.any(Object), // profile
+      undefined, // authConfig
     )
 
     expect(result.totalTasks).toBe(2)

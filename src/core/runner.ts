@@ -10,6 +10,8 @@ import { ProfileRegistry } from '../lighthouse/profile-registry'
 import { AssertionEngine, createAssertionEngine, AssertionContext } from '../assertions/engine'
 import { ReportCollector, TaskResult } from '../reporting/report-collector'
 import { resolveBaseline, getBaselineMetrics, ResolvedBaseline } from './utils/resolve-baseline'
+import { mergeAuthConfig } from './utils/merge-auth-config'
+import { validateAuthEnvVars } from './utils/resolve-auth'
 import { logger } from '../logger'
 
 export interface RunnerEvents {
@@ -55,7 +57,7 @@ export class Runner extends EventEmitter {
     // Initialize lighthouse launcher in headless mode for CI/automated environments
     this.lighthouseLauncher = createLighthouseLauncher(
       {
-        headless: true, // Always run in headless mode by default for performance and CI compatibility
+        headless: this.config.headless, // By default, we run in headless mode for performance and CI compatibility
         logLevel: 'error', // Keep quiet during runs
         timeout: config.timeout, // Use timeout from config
       },
@@ -163,7 +165,20 @@ export class Runner extends EventEmitter {
     try {
       const profile = this.profileRegistry.getProfile(task.profile.id)
 
-      const lighthouseResult = await this.lighthouseLauncher.run(task.target, profile)
+      const mergedAuthConfig = mergeAuthConfig(profile.auth, task.target.auth)
+
+      // Validate environment variables if auth config is present
+      if (mergedAuthConfig) {
+        const authEnvVars = validateAuthEnvVars(mergedAuthConfig)
+
+        if (!authEnvVars.valid) {
+          throw new Error(
+            `Missing required environment variables for authentication: ${authEnvVars.missingVars.join(', ')}`,
+          )
+        }
+      }
+
+      const lighthouseResult = await this.lighthouseLauncher.run(task.target, profile, mergedAuthConfig)
 
       const metrics = this.metricExtractor.extract(lighthouseResult.lhr)
 

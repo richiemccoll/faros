@@ -84,6 +84,7 @@ export interface RunOptions {
   /** Output options */
   includeRawLighthouse?: boolean
   quiet?: boolean
+  headless?: boolean
 }
 
 /**
