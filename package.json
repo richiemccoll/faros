@@ -93,7 +93,7 @@
     "chrome-remote-interface": "^0.33.3",
     "consola": "^3.2.3",
     "dotenv": "^16.4.5",
-    "giget": "^1.2.3",
+    "giget": "^2.0.0",
     "lighthouse": "^13.0.1",
     "picocolors": "^1.0.1",
     "yargs": "^17.7.2",
