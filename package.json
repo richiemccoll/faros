@@ -58,7 +58,7 @@
   "author": "Richie Mccoll",
   "license": "MIT",
   "devDependencies": {
-    "@commitlint/cli": "^18.6.1",
+    "@commitlint/cli": "^20.2.0",
     "@commitlint/config-conventional": "^18.6.3",
     "@jest/globals": "^29.7.0",
     "@tsconfig/node20": "^20.1.4",
