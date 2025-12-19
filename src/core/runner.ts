@@ -310,15 +310,14 @@ export class Runner extends EventEmitter {
       }
 
       const assertionReport = await this.assertionEngine.evaluate(context)
-
       logger.debug(
-        `Assertions evaluated for task ${task.id}: ${assertionReport.passed ? 'PASSED' : 'FAILED'} ` +
+        `Assertions evaluated for task ${task.target.url}: ${assertionReport.passed ? 'PASSED' : 'FAILED'} ` +
           `(${assertionReport.results.length - assertionReport.failureCount}/${assertionReport.results.length} passed)`,
       )
 
       return assertionReport
     } catch (error) {
-      logger.error(`Assertion evaluation failed for task ${task.id}:`, error)
+      logger.error(`Assertion evaluation failed for task ${task.target.url}:`, error)
       // Don't throw - we want the lighthouse result to still be available even if assertions fail
       return undefined
     }

@@ -8,13 +8,13 @@ Starting performance test run with 1 task(s) across 1 profile(s)
 🚀 Starting 1 performance test(s)
 🔧 Starting profile: desktop (1 task(s))
 ⏳ Running: Homepage (desktop)
-Starting assertion evaluation for task homepage_desktop_TASK_ID_97grwn6y5
+Starting assertion evaluation for task https://example.com
 Resolving assertion config for target homepage
 Config resolution complete
 Evaluating metrics against thresholds
 Metric evaluation complete: 0 metrics evaluated
-Assertion evaluation complete for task homepage_desktop_TASK_ID_97grwn6y5: PASSED (0/0 assertions passed)
-Assertions evaluated for task homepage_desktop_TASK_ID_97grwn6y5: PASSED (0/0 passed)
+Assertion evaluation complete for task https://example.com: PASSED (0/0 assertions passed)
+Assertions evaluated for task https://example.com: PASSED (0/0 passed)
 ✅ Completed: Homepage 🟢 Score: 95
 ✅ Completed profile: desktop
 🏁 Performance test run completed. 1 task(s) processed

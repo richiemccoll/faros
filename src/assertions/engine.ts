@@ -50,7 +50,7 @@ export class AssertionEngine extends EventEmitter {
     const taskId = task.id
     const target = task.target
 
-    logger.debug(`Starting assertion evaluation for task ${taskId}`)
+    logger.debug(`Starting assertion evaluation for task ${task.target.url}`)
     this.emit('evaluationStart', taskId, target)
 
     try {
@@ -71,7 +71,7 @@ export class AssertionEngine extends EventEmitter {
       }
 
       logger.debug(
-        `Assertion evaluation complete for task ${taskId}: ${report.passed ? 'PASSED' : 'FAILED'} ` +
+        `Assertion evaluation complete for task ${task.target.url}: ${report.passed ? 'PASSED' : 'FAILED'} ` +
           `(${report.results.length - report.failureCount}/${report.results.length} assertions passed)`,
       )
 
@@ -79,7 +79,7 @@ export class AssertionEngine extends EventEmitter {
       return report
     } catch (error) {
       const evaluationError = error instanceof Error ? error : new Error(String(error))
-      logger.error(`Assertion evaluation failed for task ${taskId}:`, evaluationError)
+      logger.error(`Assertion evaluation failed for task ${target.url}:`, evaluationError)
       this.emit('evaluationError', taskId, evaluationError)
 
       // Return a failed report with error details
