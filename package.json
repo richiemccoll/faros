@@ -96,7 +96,7 @@
     "giget": "^2.0.0",
     "lighthouse": "^13.0.1",
     "picocolors": "^1.0.1",
-    "yargs": "^17.7.2",
+    "yargs": "^18.0.0",
     "zod": "^4.1.13"
   },
   "config": {
