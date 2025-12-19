@@ -18,8 +18,9 @@ export const PerfConfigSchema = z.object({
   targets: z.array(TargetSchema).min(1, 'At least one target is required'),
   profiles: z.record(z.string(), ProfileRefSchema).optional(),
   defaultProfile: z.string().default('default'),
-  concurrency: z.number().int().positive().default(1),
+  concurrency: z.number().int().positive().default(3),
   maxRetries: z.number().int().nonnegative().default(2),
+  runsPerTask: z.number().int().positive().default(5),
   timeout: z.number().int().positive().default(60000), // 60 seconds
   assertions: AssertionConfigSchema.optional(),
   baseline: BaselineConfigSchema.optional(),

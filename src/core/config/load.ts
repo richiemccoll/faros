@@ -19,6 +19,7 @@ function createDefaultConfig(): PerfConfig {
     maxRetries: 2,
     timeout: 60000,
     headless: true,
+    runsPerTask: 5,
   }
 }
 
@@ -127,6 +128,7 @@ function loadConfigFromEnv(prefix: string): Partial<PerfConfig> {
     [`${prefix}MAX_RETRIES`]: 'maxRetries',
     [`${prefix}TIMEOUT`]: 'timeout',
     [`${prefix}DEFAULT_PROFILE`]: 'defaultProfile',
+    [`${prefix}RUNS_PER_TASK`]: 'runsPerTask',
     [`${prefix}OUTPUT_DIR`]: 'output.dir',
     [`${prefix}OUTPUT_FORMATS`]: 'output.formats',
   }

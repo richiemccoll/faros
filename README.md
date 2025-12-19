@@ -5,8 +5,7 @@ A Modern frontend performance testing framework for Node.js, powered by Lighthou
 ## Features
 
 - **Comprehensive Core Web Vitals** - Track LCP, CLS, FCP, FID, INP, and TBT
-- **Concurrent Performance Testing** - Test multiple URLs simultaneously with configurable concurrency
-- **Assertions-first:** Define budgets and change limits (LCP, CLS, perf score, etc.) and fail builds when they’re broken.
+  **Assertions-first:** Define budgets and change limits (LCP, CLS, perf score, etc.) and fail builds when they’re broken.
 - **Multiple Report Formats** - CLI and JSON output formats
 
 ## Installation
@@ -78,7 +77,7 @@ faros run --format json --quiet
 ```
 ℹ Loading configuration...
 ℹ Loaded config with 2 targets and 0 custom profiles
-ℹ Running 1 targets with concurrency 2...
+ℹ Running 1 targets with concurrency 1...
 ℹ Starting performance test run with 1 task(s) across 1 profile(s)
 ℹ 🚀 Starting 1 performance test(s)
 ℹ 🔧 Starting profile: mobileSlow3G (1 task(s))
@@ -267,6 +266,7 @@ interface PerfConfig {
   // Optional: Execution settings
   concurrency?: number // Default: 1 - Number of parallel tasks
   maxRetries?: number // Default: 2 - Failed task retry attempts
+  runsPerTask?: number // Default: 5 - Number of runs per task / target
   timeout?: number // Default: 30000ms - Per-task timeout
 
   // Optional: Performance assertions
@@ -289,6 +289,20 @@ interface PerfConfig {
 }
 ```
 
+### Reliable Results and Variance
+
+Faros automatically runs each performance test multiple times (5 by default, but configurable via the `runsPerTask` config option) and returns the **median result** to ensure reliable and consistent measurements.
+
+This approach helps eliminate variance from network fluctuations, CPU load, and other environmental factors.
+
+This is in-line with what the Lighthouse team [recommend](https://github.com/GoogleChrome/lighthouse/blob/main/docs/variability.md#run-lighthouse-multiple-times).
+
+The default `concurrency` setting is 1, as running multiple tests in parallel can potentially give inaccurate results due to resource contention.
+
+This config option is an escape hatch, if you're happy with the trade-off of faster test results vs less stable metrics, then you configure it to a value higher than 1 & Faros will run the tasks _within a target_ in parallel.
+
+````
+
 ### Environment Variables
 
 Override configuration using environment variables with the `PERF_` prefix:
@@ -297,6 +311,7 @@ Override configuration using environment variables with the `PERF_` prefix:
 # Execution settings
 export PERF_CONCURRENCY=4
 export PERF_MAX_RETRIES=5
+export PERF_RUNS_PER_TASK=3
 export PERF_TIMEOUT=60000
 
 # Output settings
@@ -305,7 +320,7 @@ export PERF_OUTPUT_FORMATS='["cli","json","html"]'
 
 # Then run with overrides
 faros print-config
-```
+````
 
 ### Configuration Precedence
 
@@ -567,7 +582,7 @@ faros run --config auth-config.json
       }
     }
   },
-  "concurrency": 2,
+  "concurrency": 1,
   "maxRetries": 1,
   "timeout": 45000,
   "assertions": {

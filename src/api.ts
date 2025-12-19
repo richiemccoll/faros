@@ -25,6 +25,9 @@ export interface RunOptions {
   /** Maximum retries per test (default: 2) */
   maxRetries?: number
 
+  /** Number of runs per task (default: 5) */
+  runsPerTask?: number
+
   /** Timeout in milliseconds (default: 30000) */
   timeout?: number
 

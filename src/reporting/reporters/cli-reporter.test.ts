@@ -19,6 +19,8 @@ describe('CLIReporter', () => {
     profile: { id: 'test-profile' },
     attempt: 1,
     createdAt: new Date(),
+    logicalTaskId: 'test-target_test-profile',
+    runIndex: 0,
   })
 
   const createMockTaskResult = (overrides: Partial<TaskResult> = {}): TaskResult => ({

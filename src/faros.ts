@@ -100,6 +100,7 @@ function convertOptionsToConfig(options: RunOptions | RunOptionsAdvanced): PerfC
     maxRetries: runOptions.maxRetries || 2,
     timeout: runOptions.timeout || 30000,
     headless: runOptions.headless ?? true,
+    runsPerTask: runOptions.runsPerTask || 5,
   }
 
   if (runOptions.assertions) {

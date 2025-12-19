@@ -15,6 +15,8 @@ const createMockTaskResult = (overrides: Partial<TaskResult['task']> = {}): Task
     profile: { id: 'desktop' },
     attempt: 1,
     createdAt: new Date(),
+    logicalTaskId: 'home_desktop',
+    runIndex: 0,
     ...overrides,
   },
   lighthouseResult: {
@@ -79,6 +81,8 @@ const createMockFailedTaskResult = (): TaskResult => ({
     profile: { id: 'mobile' },
     attempt: 1,
     createdAt: new Date(),
+    logicalTaskId: 'product_mobile',
+    runIndex: 0,
   },
   lighthouseResult: {
     taskId: 'slow-page',
@@ -145,6 +149,8 @@ const createMockErrorTaskResult = (): TaskResult => ({
     profile: { id: 'desktop' },
     attempt: 1,
     createdAt: new Date(),
+    logicalTaskId: 'broken_desktop',
+    runIndex: 0,
   },
   error: 'Network timeout after 30s',
   startTime: new Date('2023-12-01T10:02:00Z'),

@@ -8,6 +8,8 @@ export interface Task {
   profile: ProfileRef
   attempt: number
   createdAt: Date
+  logicalTaskId: string
+  runIndex: number // 0-based index within the logical task (0, 1, 2 for 3 runs)
 }
 
 export interface LighthouseResult {

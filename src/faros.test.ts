@@ -169,6 +169,7 @@ describe('faros API', () => {
     const result = await run({
       targets: TEST_URLS,
       timeout: 30000,
+      runsPerTask: 1,
     })
 
     expect(mockedLauncher.createLighthouseLauncher).toHaveBeenCalledTimes(1)

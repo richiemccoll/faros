@@ -219,6 +219,7 @@ describe('run command', () => {
           },
         },
         concurrency: 2,
+        runsPerTask: 1,
         maxRetries: 1,
         timeout: 30000,
         defaultProfile: 'desktop',
@@ -446,6 +447,7 @@ describe('run command', () => {
         },
       ],
       concurrency: 1,
+      runsPerTask: 1,
       maxRetries: 1,
       timeout: 30000,
       defaultProfile: 'desktop',
@@ -521,6 +523,7 @@ describe('run command', () => {
         },
         concurrency: 1,
         maxRetries: 1,
+        runsPerTask: 1,
         timeout: 30000,
         defaultProfile: 'desktop',
         assertions: {

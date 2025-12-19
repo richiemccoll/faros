@@ -12,6 +12,7 @@ import { ReportCollector, TaskResult } from '../reporting/report-collector'
 import { resolveBaseline, getBaselineMetrics, ResolvedBaseline } from './utils/resolve-baseline'
 import { mergeAuthConfig } from './utils/merge-auth-config'
 import { validateAuthEnvVars } from './utils/resolve-auth'
+import { calculateMedianMetrics } from './utils/calculate-median-metrics'
 import { logger } from '../logger'
 
 export interface RunnerEvents {
@@ -41,6 +42,11 @@ export class Runner extends EventEmitter {
   private resolvedBaseline: ResolvedBaseline | null = null
   private config: PerfConfig
   private quiet: boolean
+  // Track results by logical task ID for median calculation
+  private logicalTaskResults = new Map<string, LighthouseResult[]>()
+  private logicalTasksCompleted = new Set<string>()
+  // Track which logical tasks have been started (for event emission)
+  private logicalTasksStarted = new Set<string>()
 
   constructor(config: PerfConfig, options: RunnerOptions = {}) {
     super()
@@ -84,6 +90,11 @@ export class Runner extends EventEmitter {
    */
   async run(): Promise<RunSummary> {
     try {
+      // Clear logical task tracking state
+      this.logicalTaskResults.clear()
+      this.logicalTasksCompleted.clear()
+      this.logicalTasksStarted.clear()
+
       if (this.config.baseline) {
         this.resolvedBaseline = await resolveBaseline(this.config.baseline, process.cwd())
 
@@ -99,13 +110,21 @@ export class Runner extends EventEmitter {
       if (tasksByProfile.size === 0) {
         throw new Error('No tasks generated from configuration')
       }
+      // Calculate total logical tasks (user-visle task count)
+      const logicalTaskIds = new Set<string>()
 
-      const totalTasks = Array.from(tasksByProfile.values()).reduce((sum, tasks) => sum + tasks.length, 0)
+      Array.from(tasksByProfile.values()).forEach((tasks) => {
+        tasks.forEach((task) => logicalTaskIds.add(task.logicalTaskId))
+      })
+
+      const totalLogicalTasks = logicalTaskIds.size
 
       if (!this.quiet) {
-        logger.info(`Starting performance test run with ${totalTasks} task(s) across ${tasksByProfile.size} profile(s)`)
+        logger.info(
+          `Starting performance test run with ${totalLogicalTasks} task(s) across ${tasksByProfile.size} profile(s)`,
+        )
       }
-      this.emit('runStart', totalTasks)
+      this.emit('runStart', totalLogicalTasks)
 
       // Execute tasks sequentially by profile, but in parallel within each profile
       for (const [profileId, tasks] of tasksByProfile) {
@@ -128,7 +147,7 @@ export class Runner extends EventEmitter {
       const summary = this.reportCollector.getSummary()
 
       if (!this.quiet) {
-        logger.info(`🏁 Performance test run completed. ${summary.totalTasks} task(s) processed`)
+        logger.info(`🏁 Performance test run completed. ${totalLogicalTasks} task(s) processed`)
       }
       this.emit('runComplete', summary)
 
@@ -197,16 +216,56 @@ export class Runner extends EventEmitter {
         raw: this.config.output?.includeRawLighthouse ? lighthouseResult.lhr : undefined,
       }
 
-      taskResult.lighthouseResult = result
-      taskResult.endTime = new Date()
-
-      if (this.config.assertions) {
-        const assertionReport = await this.evaluateAssertions(task, result)
-        taskResult.assertionReport = assertionReport
+      if (!this.logicalTaskResults.has(task.logicalTaskId)) {
+        this.logicalTaskResults.set(task.logicalTaskId, [])
       }
 
-      this.reportCollector.addTaskResult(taskResult)
+      this.logicalTaskResults.get(task.logicalTaskId)!.push(result)
 
+      // Check if all runs for this logical task are complete
+      const allResults = this.logicalTaskResults.get(task.logicalTaskId)!
+      if (allResults.length === this.config.runsPerTask && !this.logicalTasksCompleted.has(task.logicalTaskId)) {
+        // All runs complete - calculate median and emit
+        this.logicalTasksCompleted.add(task.logicalTaskId)
+
+        const medianMetrics = calculateMedianMetrics(allResults.map((r) => r.metrics))
+        const durations = allResults.map((r) => r.duration).sort((a, b) => a - b)
+        const medianDuration =
+          durations.length % 2 === 0
+            ? (durations[durations.length / 2 - 1]! + durations[durations.length / 2]!) / 2
+            : durations[Math.floor(durations.length / 2)]!
+
+        // Create median result using the logical task ID as the task ID
+        const medianResult: LighthouseResult = {
+          taskId: task.logicalTaskId,
+          target: task.target,
+          profile: task.profile,
+          metrics: medianMetrics,
+          duration: medianDuration,
+          timestamp: new Date(), // Use current timestamp for final result
+          raw: this.config.output?.includeRawLighthouse ? allResults[0]?.raw : undefined,
+        }
+
+        taskResult.lighthouseResult = medianResult
+        taskResult.endTime = new Date()
+
+        let assertionReport: AssertionReport | undefined
+
+        if (this.config.assertions) {
+          assertionReport = await this.evaluateAssertions(task, medianResult)
+          taskResult.assertionReport = assertionReport
+        }
+
+        this.reportCollector.addTaskResult(taskResult)
+
+        // Emit the logical task completion event
+        this.emit('taskComplete', medianResult, assertionReport || ({} as AssertionReport))
+
+        // Return the median result so the scheduler reports completion
+        return medianResult
+      }
+
+      // Return the individual result if the logical task isn't complete yet
       return result
     } catch (error) {
       taskResult.error = error instanceof Error ? error.message : String(error)
@@ -276,19 +335,28 @@ export class Runner extends EventEmitter {
       const profiles = this.getTargetProfiles(target)
 
       for (const profile of profiles) {
-        const task: Task = {
-          id: `${target.id}_${profile.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          target,
-          profile,
-          attempt: 0,
-          createdAt: new Date(),
-        }
+        // Create a logical task ID for grouping multiple runs
+        const logicalTaskId = `${target.id}_${profile.id}`
+        const timestamp = Date.now()
 
-        // Group tasks by profile ID
-        if (!tasksByProfile.has(profile.id)) {
-          tasksByProfile.set(profile.id, [])
+        // Create multiple tasks for each target+profile combination
+        for (let runIndex = 0; runIndex < this.config.runsPerTask; runIndex++) {
+          const task: Task = {
+            id: `${logicalTaskId}_${timestamp}_${runIndex}_${Math.random().toString(36).substr(2, 9)}`,
+            target,
+            profile,
+            attempt: 0,
+            createdAt: new Date(),
+            logicalTaskId,
+            runIndex,
+          }
+
+          // Group tasks by profile ID
+          if (!tasksByProfile.has(profile.id)) {
+            tasksByProfile.set(profile.id, [])
+          }
+          tasksByProfile.get(profile.id)!.push(task)
         }
-        tasksByProfile.get(profile.id)!.push(task)
       }
     }
 
@@ -312,19 +380,34 @@ export class Runner extends EventEmitter {
    */
   private setupEventForwarding(): void {
     this.scheduler.on('taskStart', (task) => {
-      this.emit('taskStart', task)
+      // Only emit taskStart for the first run of each logical task
+      if (!this.logicalTasksStarted.has(task.logicalTaskId)) {
+        this.logicalTasksStarted.add(task.logicalTaskId)
+        // Create a representative task for the logical task
+        const logicalTask = {
+          ...task,
+          id: task.logicalTaskId, // Use logical ID for user-facing events
+        }
+        this.emit('taskStart', logicalTask)
+      }
     })
 
-    this.scheduler.on('taskComplete', (result) => {
-      this.emit('taskComplete', result)
+    this.scheduler.on('taskComplete', () => {
+      // taskComplete events for logical tasks are emitted directly from executeTask
+      // We don't need to forward individual run completions to avoid duplicates
     })
 
     this.scheduler.on('taskFailed', (task, error, willRetry) => {
+      // Only emit failure events for logical task failures
+      // For now, we'll emit all failures but could be refined
       this.emit('taskFailed', task, error, willRetry)
     })
 
     this.scheduler.on('taskRetry', (task, attempt) => {
-      this.emit('taskRetry', task, attempt)
+      // Only emit retry events for the first run of logical tasks
+      if (task.runIndex === 0) {
+        this.emit('taskRetry', task, attempt)
+      }
     })
   }
 }
